@@ -1,2 +1,4 @@
 # Apple why...
 .DS_Store
+*.out
+**/*.out
