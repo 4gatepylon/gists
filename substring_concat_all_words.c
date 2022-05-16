@@ -10,11 +10,28 @@
 // 4. Words have THE SAME LENGTH
 
 // Optimizations (only needed 1 and 3 apparently)
+// Some from (https://leetcode.com/problems/substring-with-concatenation-of-all-words/solution/)
 // 1. Don't scan beyond where you could not find something: DONE
 // 2. Sort the words or keep them in a Trie so we can immediately discard things that don't match
 //    (or use somthing like Robin Karp to "guard" the words so to speak): Not necessary
 // 3. Store the words in a counter by equality: DONE
-// 4. ... Not necessary
+// 4. Abuse the fact that the words are the same length to cut the prefix into segments (I got this from
+//    looking at other people's answers... damn it really makes it easier) and then remove from the set for
+//    each of these segments (because order doesn't matter) or break if not present. Appretnly this was not necessary
+// 5. Speed up 4 by noting that when you shift the sliding window, each string updates by one character, so if you use
+//    Robin Karp sliding hash it takes O(numWords) to update all the hashes for the substrings of s, so you would take
+//    O(numWords * wordLen + numWords * sLen) instead of O(sLen * (numWords * wordLen))
+// 6. Once you can't eat more words from the set start eating from the left (front) of the set until you can start eating again,
+//    this seems like it hould truly be linear if you can use some sort of hashing. However, it's not clear that it doesn't
+//    miss cases where words share overlaps. You can keep track of all possible available to early stop. This is basically
+//    Leetcode's "Approach 2: Sliding Window." I need to think more about it, but naively, it's not obvious that it's correct.
+//    `aaaba` `aa ba` -> aa ab -> a -> FAIL? What would it take for this to be right? What if s was a multiple of the word length?
+//    I think it only works if it's exactly the total sum of lengths of the words.
+
+// Could learn from
+// https://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm
+// https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore_string-search_algorithm
+// https://en.wikipedia.org/wiki/Rabin%E2%80%93Karp_algorithm
 
 #include <stdio.h>
 #include <stdlib.h>
