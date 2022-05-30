@@ -73,21 +73,14 @@ Graph* make_graph(int N, int M, Edge* edges) {
 
     // Set the correct offset, put the count (number of neighbor edges) in the first element,
     // then set the offset to the last index that is insertable into
-    int prev_count = 0;
-    int curr_count = counts[0];
-    int prev_end_offset = -1;
-    int curr_offset = prev_end_offset + 1;
-    g->offsets[0] = curr_count;
-    g->edges[curr_offset] = curr_count;
+    g->offsets[0] = 0;
+    g->edges[0] = counts[0];
     for (int i = 1; i < N; i++) {
-        prev_count = counts[i - 1];
-        curr_count = counts[i];
-        prev_end_offset = g->offsets[i - 1];
-        curr_offset = prev_end_offset + 1;
-
-        g->edges[curr_offset] = curr_count;
-        // Remember to set to the end offset (i.e. last element in the list of nodes)
-        g->offsets[i] = curr_offset + curr_count;
+        g->offsets[i] = g->offsets[i - 1] + counts[i - 1] + 1;
+        g->edges[g->offsets[i]] = counts[i];
+    }
+    for (int i = 0; i < N; i++) {
+        g->offsets[i] += counts[i];
     }
 
     // Insert all the edges into the graph
@@ -126,7 +119,7 @@ void print_graph(Graph* g) {
             int to = g->edges[g->offsets[i] + j];
             printf("%d ", to);
         }
-        if (count > 1) {
+        if (count > 0) {
             int to = g->edges[g->offsets[i] + count];
             printf("%d\n", to);
         }
