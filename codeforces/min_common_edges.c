@@ -49,9 +49,12 @@ Graph* make_graph(int N, int M, Edge* edges) {
     g->N = N;
     g->M = M;
     g->offsets = malloc(sizeof(int) * N);
-    g->edges = malloc(sizeof(int) * 2 * M + N);
+    g->edges = malloc(sizeof(int) * (2 * M + N));
 
-    // Use `offsets` to count the number of edges for each vertex initially.
+    // Count the number of edges for each vertex
+    int* counts = malloc(sizeof(int) * N);
+
+    memset(counts, 0, sizeof(int) * N);
     for (int i = 0; i < M; i++) {
         int from = edges[i].from;
         int to = edges[i].to;
@@ -60,22 +63,31 @@ Graph* make_graph(int N, int M, Edge* edges) {
         assert(1 <= from && from <= N);
         assert(1 <= to && to <= N);
 
-        g->offsets[from - 1] ++;
-        g->offsets[to - 1] ++;
+        counts[from - 1] ++;
+        counts[to - 1] ++;
     }
 
-    // Set the edges to be `-1` as a hack to signify that they are not yet set
-    memset(g->edges, -1, sizeof(int) * 2 * M + N);
+    // Set to -1 for debugging discoverability
+    memset(g->edges, -1, sizeof(int) * (2 * M + N));
+    memset(g->offsets, -1, sizeof(int) * N);
 
     // Set the correct offset, put the count (number of neighbor edges) in the first element,
     // then set the offset to the last index that is insertable into
-    g->edges[0] = g->offsets[0];
+    int prev_count = 0;
+    int curr_count = counts[0];
+    int prev_end_offset = -1;
+    int curr_offset = prev_end_offset + 1;
+    g->offsets[0] = curr_count;
+    g->edges[curr_offset] = curr_count;
     for (int i = 1; i < N; i++) {
-        int count = g->offsets[i];
-        int real_offset = g->offsets[i - 1] + count;
-        int start_offset = real_offset + count;
-        g->edges[real_offset] = count;
-        g->offsets[i] = start_offset;
+        prev_count = counts[i - 1];
+        curr_count = counts[i];
+        prev_end_offset = g->offsets[i - 1];
+        curr_offset = prev_end_offset + 1;
+
+        g->edges[curr_offset] = curr_count;
+        // Remember to set to the end offset (i.e. last element in the list of nodes)
+        g->offsets[i] = curr_offset + curr_count;
     }
 
     // Insert all the edges into the graph
@@ -100,6 +112,7 @@ Graph* make_graph(int N, int M, Edge* edges) {
     // Check that for the very first case the offsets decremented correctly
     assert(g->offsets[0] == 0);
 
+    free(counts);
 
     return g;
 }
@@ -310,7 +323,7 @@ bool test1(int print_only /*Whether to actually fail or only print the outputs.*
         int y = queries[i][3];
         outputs[i] = min_common(u, v, x, y, g);
 
-        printf("Query %d/%d, (%d, %d) -> (%d, %d) = %d\n", i, Q, u, v, x, y, outputs[i]);
+        printf("Query %d/%d, (%d, %d) -> (%d, %d) = %d (should = %d)\n", i, Q, u, v, x, y, outputs[i], expected_output[i]);
     }
 
     // Check for error handling
@@ -395,7 +408,7 @@ bool test2(int print_only /*Whether to actually fail or only print the outputs.*
         int y = queries[i][3];
         outputs[i] = min_common(u, v, x, y, g);
 
-        printf("Query %d/%d, (%d, %d) -> (%d, %d) = %d\n", i, Q, u, v, x, y, outputs[i]);
+        printf("Query %d/%d, (%d, %d) -> (%d, %d) = %d (should = %d)\n", i, Q, u, v, x, y, outputs[i], expected_output[i]);
     }
 
     // Check for error handling
