@@ -17,6 +17,8 @@ input = BytesIO(os.read(0, os.fstat(0).st_size)).readline
 # same trick to rename writing to the stdout buffer
 print = sys.stdout.write
 
+# I originally misunderstood this and solved for the subsequence sum
+
 # Problem of partial sums is more interesting (using DP)
 T = int(input())
 for _ in range(T):
