@@ -41,8 +41,7 @@ func queueMin(q *Queue) int {
 // Helper to pushQueue
 func pushQueueOnlyPush(q *Queue, nextVal int, nextIdx int) {
 	// Pop all larger elements to maintain increasing subsequence invariant
-	i := q.idxRight
-	for q.queue[i].val >= nextVal {
+	for q.idxRight >= q.idxLeft && q.queue[q.idxRight].val >= nextVal {
 		q.idxRight --
 	}
 
@@ -65,8 +64,7 @@ func pushQueue(q *Queue, nextVal int) {
 	pushQueueOnlyPush(q, nextVal, q.arrWindowRightIdx)
 
 	// Pop out everything on the left that is too old
-	i := q.idxLeft
-	for q.queue[i].idx < q.arrWindowRightIdx {
+	for q.idxLeft <= q.idxRight && q.queue[q.idxLeft].idx < q.arrWindowRightIdx {
 		q.idxLeft ++
 	}
 }
@@ -88,6 +86,7 @@ func initQueue(arr []int, windowSize int) *Queue {
 	q.idxRight = 0
 	q.queue[0] = QueueElement{/* idx = */ 0, /* val = */ arr[0]}
 	for i := 1; i < windowSize; i++ {
+		// fmt.Printf("Step %d/%d of push\n", i, windowSize) // XXX
 		pushQueueOnlyPush(q, arr[i], i)
 	}
 
@@ -101,8 +100,10 @@ func initQueue(arr []int, windowSize int) *Queue {
 // Fixing a size of sliding windows, find the largest area possible with that window size.
 // O(n)
 func maxWithSlidingWindowSize(arr []int, windowSize int) int {
+	// fmt.Println("Initializing queue") // XXX
 	q := initQueue(arr, windowSize)
 	maxHeight := queueMin(q)
+	// fmt.Println("Pushing onto the queue a lot") // XXX
 	for i := windowSize; i < len(arr) - windowSize + 1; i++ {
 		pushQueue(q, arr[i])
 		candidateHeight := queueMin(q)
@@ -127,6 +128,7 @@ func maxTotal(arr []int) int {
 	right := len(arr) 
 	for left < right - 1 {
 		mid := left + (right - left) / 2
+		// fmt.Printf("Trying [%d > %d < %d] \n", left, mid, right) // XXX
 		midArea := maxWithSlidingWindowSize(arr, mid)
 		midNextArea := maxWithSlidingWindowSize(arr, mid + 1)
 		if midNextArea - midArea < 0 {
@@ -151,6 +153,15 @@ func maxTotal(arr []int) int {
 // 1. `go build LargestRectangle84.go`
 // 2. `go run LargestRectangle84`
 func main() {
-	fmt.Println("Hello! This is a test.")
-	// example_arr := [2,1,5,6,2,3]
+	fmt.Println("Trying out problem 84 of Leetcode")
+	exampleArr := make([]int, 6)
+	exampleArr[0] = 2
+	exampleArr[1] = 1
+	exampleArr[2] = 5
+	exampleArr[3] = 6
+	exampleArr[4] = 2
+	exampleArr[5] = 3
+
+	max := maxTotal(exampleArr)
+	fmt.Printf("The max size is %d\n", max)
 }
