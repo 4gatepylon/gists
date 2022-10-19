@@ -23,21 +23,32 @@ def pedestal_height(n):
         # (n // 3 - 1) of width 3
         # 1 of width 2
         # 1 of width 1
-        return (n // 3 - 1) + 2
+        w3 = (n // 3 - 1)
+        w2 = w3 + 1
+        w1 = w2 + 1
+        return (w3, w2, w1)
     elif n % 3 == 1:
-        # (n // 3 - 1) pf width 3
+        # (n // 3 - 1) of width 3
         # 1 of width 2
         # 2 of widh 1
-        return (n // 3 - 1) + 3
+        w3 = (n // 3 - 1)
+        w2 = w3 + 1
+        w1 = w2 + 2
+        return (w3, w2, w1)
     else:
         # -- n % 3 == 2
         # (n // 3 - 1) of width 3
         # 2 of width 2
         # 1 of width 1
-        return (n // 3 - 1) + 3
+        w3 = (n // 3 - 1)
+        w2 = w3 + 2
+        w1 = w2 + 1
+        return (w3, w2, w1)
 
 T = int(input())
 for _ in range(T):
     N = int(input())
-    H = pedestal_height(N)
-    print(bytes(f"{H}\n", "utf-8"))
+    w3, w2, w1 = pedestal_height(N)
+    assert(w3 + w2 + w1 == N), f"Yields w3:{w3}, w2:{w2}, w1:{w1} for {N} blocks"
+    assert(w1 > w2 and w2 > w3)
+    print(bytes(f"{w2} {w1} {w3}\n", "utf-8"))

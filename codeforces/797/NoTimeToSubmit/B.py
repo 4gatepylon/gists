@@ -23,7 +23,7 @@ def num_ops(N, source, target):
     for i in range(N):
         # Because the operation is idempotent after zero, we only use differences of non-zero numbers
         # (they must all be the same)
-        if target != 0:
+        if target[i] != 0:
             # If any diff is OK then select the one that is forced by this number
             # Else fail if the diff does not match one which we found was necessary before
             if diff is None:
@@ -45,4 +45,4 @@ for _ in range(T):
     assert(len(source) == N)
     assert(len(target) == N)
     O = num_ops(N, source, target)
-    print(bytes("YES" if O else "NO", "utf-8"))
+    print(bytes("YES\n" if O else "NO\n", "utf-8"))
