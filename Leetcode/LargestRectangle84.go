@@ -6,145 +6,86 @@ package main
 
 import "fmt"
 
-// Queue of increasing subsequence of elements in a consecutive section of
-// an array. This is a subset of a sliding window.
-// The last element of the queue is the minimum.
-// - On enqueue
-//   1. For all elements larger than the current incoming element, pop them off
-//      the right and then append our element to the right.
-//   2. For all elements of an index lesser than the starting index, pop them.
-// - To Find Min
-//   1. Just check the last element (remember, this is an increasing subsequence)
-// - There is no dequeue
-// Should allocate it to have size n since at most n elements are enqueued and
-// some might be dequeued.
-type QueueElement struct {
-	idx int
-	val int
-}
-
-type Queue struct {
-	queue []QueueElement
-	idxLeft int
-	idxRight int
-	arrWindowLeftIdx int
-	arrWindowRightIdx int
-}
-
-func queueMin(q *Queue) int {
-	if len(q.queue) == 0 {
-		return -1
-	}
-	return q.queue[len(q.queue) - 1].val
-}
-
-// Helper to pushQueue
-func pushQueueOnlyPush(q *Queue, nextVal int, nextIdx int) {
-	// Pop all larger elements to maintain increasing subsequence invariant
-	for q.idxRight >= q.idxLeft && q.queue[q.idxRight].val >= nextVal {
-		q.idxRight --
-	}
-
-	// Push element on the queue
-	q.idxRight ++
-	q.queue[q.idxLeft] = QueueElement{/* idx = */ nextIdx, /* val = */ nextVal}
-}
-
-// Push a value onto the queue after popping all that are on the right
-// and larger to it. Then increment the arrWindowRightIdx and the
-// arrWindowLeftIdx to match with the new location of the window.
-// Then pop the last element (or any last elements)
-// on the left that are to the left of the arrWindowLeftIdx
-func pushQueue(q *Queue, nextVal int) {
-	// Increment the window
-	q.arrWindowLeftIdx ++
-	q.arrWindowRightIdx ++
+// Strategy is to
+// 1. For each element, find the index of the leftmost element to the right smaller than it
+// 2. For each element, find the index of the rightmost element to the left smaller than it
+// 3. For each element, compute it's maximal rectangle (assuming that it is the decider for
+//   the height, i.e. it's the shortest element in that rectangle) by finding
+//   H(element) * (Index(right) - Index(left) - 1) since that is its maximal rectangle
+//   (assuming it is the height-decider).
+//
+// This works because every rectangle can be defined in terms of its bottleneck height
+// and the indices that induces.
+// Runtime is O(n).
+//
+// If this were production code we'd want it a little more modular...
+func largestRectangleArea(heights []int) int {
+	// Store the index of the first element to the right (of each element, denoted by
+	// its index) such that the height of that element to the right is smaller than
+	// this element's height.
+    rightIdxs := make([]int, len(heights), len(heights))
+	// Store the index of the first element to the left of each element that is
+	// smaller (analogous to rightIdxs)
+	leftIdxs := make([]int, len(heights), len(heights))
 	
-	// Pop all larger elements to maintain increasing subsequence invariant
-	pushQueueOnlyPush(q, nextVal, q.arrWindowRightIdx)
+	// A LIFO stack that stores a sequence that is decreasing from right to left.
+	// It is used as we traverse the array to remember the possible first elements
+	// smaller (than the current element) to either the right or left.
+	//
+	// VALUES:    indices of candidate elements
+	// INVARIANT 1: stack[stackHead] is the first element smaller than our current element
+	//   in some direction.
+	// INVARIANT 2: stack[idx] <= stack[idx + 1] forall idx <= stackHead
+	// INVARIANT 3: stack[0] = -1 if going right and len(heigths) if going left
+	stack := make([]int, len(heights) + 1, len(heights) + 1)
+	stackHead := 0
 
-	// Pop out everything on the left that is too old
-	for q.idxLeft <= q.idxRight && q.queue[q.idxLeft].idx < q.arrWindowRightIdx {
-		q.idxLeft ++
+	// Calculate the largest index smaller to the left (moving right using DP)
+	// By convention the first elements gets -1
+	stack[stackHead] = -1
+	for i := 0; i < len(heights); i++ {
+		// Solve for this index by popping all invalid options
+		// and then getting the stackHead
+		for ; stackHead > 0 && heights[stack[stackHead]] >= heights[i]; stackHead -- {}
+		if (stack[stackHead] != -1 && heights[stack[stackHead]] >= heights[i]) {
+			panic("Invariant broken")
+		}
+		leftIdxs[i] = stack[stackHead]
+
+		// Keep the invariants
+		stackHead ++
+		stack[stackHead] = i
 	}
-}
 
-// Initialize a queue on the values in an array by taking in the first
-// windowSize elements and setting up the invariant.
-func initQueue(arr []int, windowSize int) *Queue {
-	if len(arr) == 0 {
-		return nil
+	// Calculate the smallest index larger to the right (moveing left using DP)
+	// By convention the last elements gets len(heights)
+	stackHead = 0
+	stack[stackHead] = len(heights)
+	for i := len(heights) - 1; i >= 0; i-- {
+		// Like before pop out invalid stack elements and then get the
+		// proper element for this one
+		for ; stackHead > 0 && heights[stack[stackHead]] >= heights[i]; stackHead -- {}
+		if (stack[stackHead] != len(heights) && heights[stack[stackHead]] >= heights[i]) {
+			panic("Invariant broken")
+		}
+		rightIdxs[i] = stack[stackHead]
+
+		// Keep the invariants
+		stackHead ++
+		stack[stackHead] = i
 	}
 
-	// Create the queue
-	q := new(Queue)
-	q.queue = make([]QueueElement, len(arr))
-
-	// Populate the queue by enqueing, except
-	// we do not modify the arrWindow indices
-	q.idxLeft = 0
-	q.idxRight = 0
-	q.queue[0] = QueueElement{/* idx = */ 0, /* val = */ arr[0]}
-	for i := 1; i < windowSize; i++ {
-		// fmt.Printf("Step %d/%d of push\n", i, windowSize) // XXX
-		pushQueueOnlyPush(q, arr[i], i)
-	}
-
-	// Update the sliding window elements
-	q.arrWindowLeftIdx = 0
-	q.arrWindowRightIdx = windowSize - 1
-
-	return q
-}
-
-// Fixing a size of sliding windows, find the largest area possible with that window size.
-// O(n)
-func maxWithSlidingWindowSize(arr []int, windowSize int) int {
-	// fmt.Println("Initializing queue") // XXX
-	q := initQueue(arr, windowSize)
-	maxHeight := queueMin(q)
-	// fmt.Println("Pushing onto the queue a lot") // XXX
-	for i := windowSize; i < len(arr) - windowSize + 1; i++ {
-		pushQueue(q, arr[i])
-		candidateHeight := queueMin(q)
-		if candidateHeight > maxHeight {
-			maxHeight = candidateHeight
+	// Find the max area
+	maxArea := heights[0]
+	for bottleneck := 0; bottleneck < len(heights); bottleneck ++ {
+		bottleneckHeight := heights[bottleneck]
+		bottleneckWidth := rightIdxs[bottleneck] - leftIdxs[bottleneck] - 1;
+		bottleneckArea := bottleneckHeight * bottleneckWidth;
+		if bottleneckArea > maxArea {
+			maxArea = bottleneckArea
 		}
 	}
-	return maxHeight * windowSize
-}
-
-// For an array, do binary search on the sizes of possible windows (n possible sizes)
-// to find a rectangle of maximal size. O(nlogn)
-func maxTotal(arr []int) int {
-	maxArea := arr[0]
-	// Perform binary search on the delta areas
-	// We want to find the first element s.t.
-	// the area after it is smaller. TODO we need
-	// to prove that this actually correct, but there
-	// is an intuition that the shape is parabolic
-	// for the areas.
-	left := 0
-	right := len(arr) 
-	for left < right - 1 {
-		mid := left + (right - left) / 2
-		// fmt.Printf("Trying [%d > %d < %d] \n", left, mid, right) // XXX
-		midArea := maxWithSlidingWindowSize(arr, mid)
-		midNextArea := maxWithSlidingWindowSize(arr, mid + 1)
-		if midNextArea - midArea < 0 {
-			// Could be this one but can't be to the right of mid + 1
-			// because this one would come before it
-			maxArea = midArea
-			right = mid + 1
-		} else {
-			// Has to be the next one or after because
-			// this one is increasing
-			maxArea = midNextArea
-			left = mid + 1
-		}
-	}
-
-	return maxArea
+	return maxArea;
 }
 
 // Our algorithm will operate as follows
@@ -154,14 +95,11 @@ func maxTotal(arr []int) int {
 // 2. `go run LargestRectangle84`
 func main() {
 	fmt.Println("Trying out problem 84 of Leetcode")
-	exampleArr := make([]int, 6)
-	exampleArr[0] = 2
-	exampleArr[1] = 1
-	exampleArr[2] = 5
-	exampleArr[3] = 6
-	exampleArr[4] = 2
-	exampleArr[5] = 3
+	exampleArr := []int{2, 1, 5, 6, 2, 3}
+	exampleArr2 := []int{2, 4}
 
-	max := maxTotal(exampleArr)
-	fmt.Printf("The max size is %d\n", max)
+	max := largestRectangleArea(exampleArr)
+	fmt.Printf("The max size of exampleArr is %d\n", max)
+	max = largestRectangleArea(exampleArr2)
+	fmt.Printf("The max size of exampleArr2 is %d\n", max)
 }
