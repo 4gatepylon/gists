@@ -1,0 +1,1 @@
+Shit written while learning cpp because apparently you need to know cpp or smth.

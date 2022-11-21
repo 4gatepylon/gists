@@ -1,65 +1,31 @@
-use std::rc::Rc;
-use std::cell::RefCell;
-
-#[derive(PartialEq)]
-pub struct Dummy {
-    pub v: i32
-}
-
-impl Dummy {
-    #[inline]
-    pub fn new() -> Self {
-        Dummy {
-            v: 3
-        }
-    }
-}
-
-// Definition for a binary tree node.
-#[derive(Debug, PartialEq, Eq)]
-pub struct TreeNode {
+// Definition for singly-linked list.
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct ListNode {
   pub val: i32,
-  pub left: Option<Rc<RefCell<TreeNode>>>,
-  pub right: Option<Rc<RefCell<TreeNode>>>,
+  pub next: Option<Box<ListNode>>
 }
 
-impl TreeNode {
+impl ListNode {
   #[inline]
-  pub fn new(val: i32) -> Self {
-    TreeNode {
-      val,
-      left: None,
-      right: None
+  fn new(val: i32) -> Self {
+    ListNode {
+      next: None,
+      val
     }
   }
 }
 
+use std::rc::Rc;
 fn main() {
-    let rc_examples = TreeNode::new(3);
-    // let little_rc: Rc<TreeNode> = Rc::new(rc_examples);
-    // assert!(little_rc.val == 3);
+    // list 2 < list 1
+    // Note that this works because ListNode's new function is inlined...
+    // otherwise I'm not sure the creation of the new box would actually capture it?
+    // not sure how boxes work...
+    let list1: Option<Box<ListNode>> = Some(Box::new(ListNode::new(32)));
+    let list2: Option<Box<ListNode>> = Some(Box::new(ListNode::new(10)));
+    assert!(!list1.is_none() && !list2.is_none());
 
-    let rf: RefCell<TreeNode> = RefCell::new(rc_examples);
-    assert!(rf.borrow().val == 3);
-
-    let rc = Rc::new(rf);
-    assert!(rc.borrow().val == 3);
-
-    let root_node = rc;
-    let child: Rc<RefCell<TreeNode>> = Rc::new(RefCell::new(TreeNode::new(6)));
-    root_node.borrow_mut().left = Some(child);
-
-    // First borrow
-    let v: i32 = root_node.borrow().val;
-    // Then borrow again for another usage
-    let l: Option<Rc<RefCell<TreeNode>>> = root_node.borrow().left.clone();
-    let inverted = TreeNode {
-        val: v,
-        left: l,
-        right: None
-    };
-    println!("{}", inverted.val);
-
-    let opt: Option<i32> = None;
-    assert!(opt.clone().is_none());
+    let list1_bigger: bool = list1.as_ref().unwrap().val < list2.as_ref().unwrap().val;
+    let head: Rc<Box<ListNode>> = Rc::new(if list1_bigger {list1.unwrap()} else {list2.unwrap()});
+    let h1: Rc<Box<ListNode>> = Rc::new(if list1_bigger {head.clone().next.unwrap()} else {list2.unwrap()});
 }
