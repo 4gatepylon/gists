@@ -102,6 +102,7 @@ static inline bool same_direction(Vec v, Vec u) {
 // NOTE: that is not vector, it is SLOPE
 static inline bool beats_more_neg_slope(Vec beater_traj, Vec loser_traj){
     if (same_direction(beater_traj, loser_traj)) {
+        cout << "same direction\n"; // XXX
         // If one dimension is zero, then we want to pick the other dimension that is bigger
         if (beater_traj.x == 0) {
             if (beater_traj.y < 0) return beater_traj.y <= loser_traj.y;
@@ -111,7 +112,9 @@ static inline bool beats_more_neg_slope(Vec beater_traj, Vec loser_traj){
             else                   return beater_traj.x >= loser_traj.x;
         }
     }
-    return beater_traj.y * loser_traj.x > beater_traj.x * loser_traj.y;
+    // cout << "beater traj is " << beater_traj.y << "/" << beater_traj.x << "\n"; // XXX
+    // cout << "loser traj is " << loser_traj.y << "/" << loser_traj.x << "\n"; // XXX
+    return beater_traj.y * loser_traj.x <= beater_traj.x * loser_traj.y;
 }
 
 // Assuming that two vectors are in the same quadrant, decide
@@ -160,6 +163,8 @@ static inline pair<Quadrant, bool> beats(
     // Quadrant pointing of that vector
     Quadrant beater_quad = quadrant(beater_traj);
     Quadrant loser_quad = quadrant(loser_traj);
+    cout << "current quadrant " << curr_quad << "\n";
+    cout << "beater quadrant " << beater_quad << " and loser quadrant " << loser_quad << "\n"; // XXX
     int beater_quad_diff = quadrant_diff(curr_quad, beater_quad);
     int loser_quad_diff = quadrant_diff(curr_quad, loser_quad);
     // If there is a change in quadrants that is larger for one vector than the other
@@ -206,15 +211,23 @@ static int fill_hull(vector<Point>& hull, int i, int j) {
                 Point tmp_pnt = hull[i+1];
                 hull[i+1] = hull[i+2];
                 hull[i+2] = tmp_pnt;
-
             }
         }
         // With 2 points its already sorted in the right order
+        cout << "done " << i << " to " << j << "\n"; // XXX
         return j;
     }
     int m = i + (j - i) / 2;
     int ki = fill_hull(hull, i, m);
     int kj = fill_hull(hull, m, j);
+    for (int z = i; z < ki; z++) { // XXX
+        Point p = hull[z];
+        cout << "Point in A" << p.x << " " << p.y << "\n";
+    }
+    for (int z = m; z < kj; z++) { // XXX
+        Point p = hull[z];
+        cout << "Point in B" << p.x << " " << p.y << "\n";
+    }
     assert(i < ki && ki <= m);
     assert(m < kj && kj <= j);
 
@@ -223,29 +236,42 @@ static int fill_hull(vector<Point>& hull, int i, int j) {
     // We can expect the first element of A to be inside the convex hull because there is no element
     // both lower and more to the left
     int A = i;
-    int B = j;
+    int B = m;
     int k = i;
+
+    // We need to have a cycle of length at least two
+    // To get vectors
+    assert(A < ki - 1);
+    assert(B < kj - 1);
+    cout << "ki is " << ki << " and kj is " << kj << "\n";
     Point curr_pnt = hull[A];
-    Quadrant curr_quad = quadrant(diff(curr_pnt, hull[ki - 1])); // TODO deal with singletons
+    Quadrant curr_quad = quadrant(diff(curr_pnt, hull[ki - 1]));
     A++;
     while (A < ki && B < kj) {
+        cout << "Current point is " << curr_pnt.x << ", " << curr_pnt.y << "\n"; // XXX
+        cout << "A is index " << A << " with value " << hull[A].x << ", " << hull[A].y << "\n"; // XXX
+        cout << "B is index " << B << " with value " << hull[B].x << ", " << hull[B].y << "\n"; // XXX
         pair<Quadrant, bool> beat_info = beats(curr_quad, curr_pnt, hull[A], hull[B]);
         bool A_beats = beat_info.second;
         curr_quad = beat_info.first;
         curr_pnt = A_beats ? hull[A] : hull[B];
         
         if (A_beats) {
+            cout << "\t A won\n"; // XXX
             // One point should always beat so eventually we get here
             // Because it's in-place do nothing
             A++;
         } else {
+            cout << "\t B won\n"; // XXX
             Point tmp_pnt = hull[A];
             hull[A] = hull[B];
             hull[B] = tmp_pnt;
         }
+        k++;
+        cout << "--\n"; // XXX
     }
-    while (A < ki) { hull[k++] = hull[B++]; }
-    while (B < kj) { hull[k++] = hull[B++]; }
+    while (A < ki) { hull[k++] = hull[B++]; cout << "out of B, using up A\n"; }
+    while (B < kj) { hull[k++] = hull[B++]; cout << "out of A, using up B\n"; }
     return k;
 }
 
@@ -263,7 +289,7 @@ static vector<Point> convex_hull(vector<Point>& points) {
         hull[i] = points[i];
     }
     sort(hull.begin(), hull.end(), [](const Point& a, const Point& b) -> bool {
-        return a.y > b.y ? true : (a.y == b.y && a.x >= b.x ? true : false);
+        return a.y < b.y ? true : (a.y == b.y && a.x <= b.x ? true : false);
     });
     int last_index = fill_hull(hull, 0, points.size());
     while(hull.size() > last_index + 1) {
@@ -273,12 +299,12 @@ static vector<Point> convex_hull(vector<Point>& points) {
 }
 
 int main() {
-    cout << "Testing shit!\n";
-
     vector<Point> points{
         Point{1, 2},
         Point{2, 5},
-        Point{0, 0}
+        Point{0, 0},
+        Point{1, 1},
+        Point{2, 2},
     };
     vector<Point> hull = convex_hull(points);
     for (Point& p : hull) {
