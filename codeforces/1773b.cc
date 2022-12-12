@@ -1,3 +1,5 @@
+// This is from the following question:
+// https://codeforces.com/contest/1773/problem/B
 #include <vector>
 #include <iostream>
 #include <string>
