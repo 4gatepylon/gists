@@ -2,6 +2,7 @@
 #include <iostream>
 #include <assert.h>
 #include <algorithm>
+#include <math.h>
 
 // Compile with
 // clang++ convex_hull.cc -std=c++11 -stdlib=libc++ -Weverything
@@ -31,15 +32,42 @@ using namespace std;
 // 4 4 5
 // 1 2 2 3 4 4 5
 
-typedef struct {
-    int x;
-    int y;
-} Point;
+// For numerical issues and testing
+struct Float {
+    double v;
 
-typedef struct {
-    int x;
-    int y;
-} Vec;
+    Float(double u) {
+        v = u;
+    }
+
+    #define EPS 0.000000000001
+    bool operator ==(const Float& u) const { return abs(v - u.v) < EPS; }
+    bool operator !=(const Float& u) const { return !(*this == u); }
+    Float operator +(const Float& u) const{ return Float(v + u.v); }
+    Float operator -(const Float& u) const{ return Float(v - u.v); }
+    Float operator *(const Float& u) const{ return Float(v * u.v); }
+    Float operator /(const Float& u) const{ return Float(v / u.v); }
+    bool operator >(const Float& u) const{ return v > u.v; }
+    bool operator >=(const Float& u) const{ return v >= u.v; }
+    bool operator <(const Float& u) const{ return v < u.v; }
+    bool operator <=(const Float& u) const{ return v <= u.v; }
+    
+};
+
+struct Point_t {
+    Float x;
+    Float y;
+    const bool operator ==(const struct Point_t& p) const { return x == p.x && y == p.y; }
+};
+
+struct Vec_t {
+    Float x;
+    Float y;
+    const bool operator ==(const struct Vec_t& v) const { return x == v.x && y == v.y; }
+};
+
+typedef struct Point_t Point;
+typedef struct Vec_t Vec;
 
 typedef int Quadrant;
 #define I 1
@@ -56,9 +84,9 @@ typedef int Quadrant;
 //  - until you loop there is an ordering of the quadrants where
 //  - if you go to the lower quadrant above you, you are rotating less
 static inline Quadrant quadrant(Vec v) {
-    if (v.x > 0 && v.y >= 0) return I;
-    if (v.x <= 0 && v.y > 0) return II;
-    if (v.x < 0 && v.y <= 0) return III;
+    if (v.x >= 0 && v.y > 0) return I;
+    if (v.x < 0 && v.y >= 0) return II;
+    if (v.x <= 0 && v.y < 0) return III;
     return IV;
 }
 
@@ -73,18 +101,18 @@ static inline int quadrant_diff(Quadrant q1, Quadrant q2) {
 
 // RETURN
 //  - Vector from diff of two points
-static inline Vec diff(Point p1, Point p2) {
-    return Vec{p2.x - p1.x, p2.y - p1.y};
+static inline Vec point_diff(Point p1, Point p2) {
+    return Vec{p1.x - p2.x, p1.y - p2.y};
 }
 
 // RETURN
 //  - The dot product of two vectors
-static inline int dot(Vec v, Vec u) {
+static inline Float dot(Vec v, Vec u) {
     return v.x * u.x + v.y * u.y;
 }
 // RETURN
 //  - The squared norm (euclidean) of a vector
-static inline int norm2(Vec v) {
+static inline Float norm2(Vec v) {
     return v.x * v.x + v.y * v.y;
 }
 
@@ -92,17 +120,18 @@ static inline int norm2(Vec v) {
 //  - Whether two vectors have the same heading
 // (assuming they are in the same quadrant)
 static inline bool same_direction(Vec v, Vec u) {
-    // (v.u)^2 = size(v)size(u)
-    int d = dot(v, u);
-    return d * d == norm2(v) * norm2(u);
+    Float d = dot(v, u);
+    // In the case of d = 0 they can only be in the same direction if it is
+    // the zero vector. This is an edge case which won't occur, but it will pass.
+    return d * d == norm2(v) * norm2(u) && d >= 0;
 }
+
 
 // RETURN
 //  - Whether the beater_traj has more negative slope or not than loser_traj
-// NOTE: that is not vector, it is SLOPE
+// NOTE: that is not vector, it is SLOPE (so it is assumed that you are in the same quadrant)
 static inline bool beats_more_neg_slope(Vec beater_traj, Vec loser_traj){
     if (same_direction(beater_traj, loser_traj)) {
-        cout << "same direction\n"; // XXX
         // If one dimension is zero, then we want to pick the other dimension that is bigger
         if (beater_traj.x == 0) {
             if (beater_traj.y < 0) return beater_traj.y <= loser_traj.y;
@@ -112,8 +141,6 @@ static inline bool beats_more_neg_slope(Vec beater_traj, Vec loser_traj){
             else                   return beater_traj.x >= loser_traj.x;
         }
     }
-    // cout << "beater traj is " << beater_traj.y << "/" << beater_traj.x << "\n"; // XXX
-    // cout << "loser traj is " << loser_traj.y << "/" << loser_traj.x << "\n"; // XXX
     return beater_traj.y * loser_traj.x <= beater_traj.x * loser_traj.y;
 }
 
@@ -121,7 +148,7 @@ static inline bool beats_more_neg_slope(Vec beater_traj, Vec loser_traj){
 // which one has the least change in the right hand rule direction
 // RETURN
 //  - The trajectory that wins and true if it was beater
-static inline pair<Quadrant, bool> beats_in_quad(
+static inline bool beats_in_quad(
     Quadrant quad, 
     Vec beater_traj,
     Vec loser_traj) {
@@ -130,13 +157,16 @@ static inline pair<Quadrant, bool> beats_in_quad(
     // if each is negative then it should still work...
     assert(beater_traj.x != 0 || beater_traj.y != 0);
     assert(loser_traj.x != 0 || loser_traj.y != 0);
+    
+    assert(quadrant(beater_traj) == quad);
+    assert(quadrant(loser_traj) == quad);
     // Turns out, you always want the more negative slope, because on teh right hand of y you get
     // more positive and you want to slow that, while on the left hand of y you also get more positive
     // (and also want to slow that), it's just that at y you jump from +infty to -infty
     if (beats_more_neg_slope(beater_traj, loser_traj)) {
-        return pair<Quadrant, bool>(quad, true);
+        return true;
     }
-    return pair<Quadrant, bool>(quad, false);
+    return false;
 }
 
 // Get which next point beats the other (i.e. we should take to keep
@@ -163,8 +193,7 @@ static inline pair<Quadrant, bool> beats(
     // Quadrant pointing of that vector
     Quadrant beater_quad = quadrant(beater_traj);
     Quadrant loser_quad = quadrant(loser_traj);
-    cout << "current quadrant " << curr_quad << "\n";
-    cout << "beater quadrant " << beater_quad << " and loser quadrant " << loser_quad << "\n"; // XXX
+
     int beater_quad_diff = quadrant_diff(curr_quad, beater_quad);
     int loser_quad_diff = quadrant_diff(curr_quad, loser_quad);
     // If there is a change in quadrants that is larger for one vector than the other
@@ -177,9 +206,11 @@ static inline pair<Quadrant, bool> beats(
     // If the changes are both in the same quadrant, return the one that leads to the less
     // difference
     assert(beater_quad == loser_quad);
-    return beats_in_quad(beater_quad, beater_traj, loser_traj);
+    return pair<Quadrant, bool>(beater_quad, beats_in_quad(beater_quad, beater_traj, loser_traj));
 }
 
+/** TODO FIX BELOW
+ * 
 // Return the last index that is relevant + 1 (i.e. exclusive)
 static int fill_hull(vector<Point>& hull, int i, int j) {
     // Should have at least two points
@@ -298,16 +329,113 @@ static vector<Point> convex_hull(vector<Point>& points) {
     return hull;
 }
 
+* TODO FIX ABOVE
+**/
+
 int main() {
-    vector<Point> points{
-        Point{1, 2},
-        Point{2, 5},
-        Point{0, 0},
-        Point{1, 1},
-        Point{2, 2},
-    };
-    vector<Point> hull = convex_hull(points);
-    for (Point& p : hull) {
-        cout << "Point " << p.x << " " << p.y << "\n";
-    }
+    // Make sure quadrant works ok on normal cases
+    assert(quadrant(Vec{1, 1}) == I);
+    assert(quadrant(Vec{-1, 1}) == II);
+    assert(quadrant(Vec{-1, -1}) == III);
+    assert(quadrant(Vec{1, -1}) == IV);
+    cout << "Quadrant (Common Case) OK!\n";
+    // Make sure that the difference between two quadrants is increasing always as you spin RHR
+    assert(quadrant_diff(I, II) <= quadrant_diff(I, III));
+    assert(quadrant_diff(I, III) <= quadrant_diff(I, IV));
+    assert(quadrant_diff(II, III) <= quadrant_diff(II, IV));
+    assert(quadrant_diff(II, IV) <= quadrant_diff(II, I));
+    assert(quadrant_diff(III, IV) <= quadrant_diff(III, I));
+    assert(quadrant_diff(III, I) <= quadrant_diff(III, II));
+    assert(quadrant_diff(IV, I) <= quadrant_diff(IV, II));
+    assert(quadrant_diff(IV, II) <= quadrant_diff(IV, III));
+    assert(quadrant_diff(I, I) == 0 && quadrant_diff(II, II) == 0 && quadrant_diff(III, III) == 0 && quadrant_diff(IV, IV) == 0);
+    cout << "Quadrant Difference OK!\n";
+    // Make sure that regular vector functions are ok
+    assert(point_diff(Point{1, 1}, Point{1, 1}) == (Vec{0, 0}));
+    assert(point_diff(Point{1, 3}, Point{3, 1}) == (Vec{-2, 2}));
+    assert(point_diff(Point{1, 1}, Point{0, 0}) == (Vec{1, 1}));
+    assert(point_diff(Point{1, 3}, Point{1, 3.1}) == (Vec{0, -0.1}));
+    assert(point_diff(Point{-1, -1}, Point{-1, -1}) == (Vec{0, 0}));
+    assert(point_diff(Point{-1, 3}, Point{3, -1}) == (Vec{-4, 4}));
+    assert(dot(Vec{1, 1}, Vec{1, 0}) == 1);
+    assert(dot(Vec{1, 1}, Vec{0, 0}) == 0);
+    assert(dot(Vec{1, 1}, Vec{-1, 1}) == 0);
+    assert(dot(Vec{1, 1}, Vec{-2, 3.3}) == 1.3);
+    assert(norm2(Vec{1, 1}) == 2);
+    assert(norm2(Vec{-1, 1}) == 2);
+    assert(norm2(Vec{-1, -1}) == 2);
+    assert(norm2(Vec{1, 2}) == 5);
+    assert(norm2(Vec{1, sqrt(3)}) == 4);
+    cout << "Difference, dot, and norm2 OK!\n";
+    // Make sure we can tell when two vectors are in the same direction
+    assert(same_direction(Vec{1, 1}, Vec{1, 1}));
+    assert(same_direction(Vec{0, 1}, Vec{0, 1}));
+    assert(same_direction(Vec{1, 0}, Vec{1, 0}));
+    assert(same_direction(Vec{0, 0}, Vec{0, 0}));
+    assert(same_direction(Vec{2, 2}, Vec{2, 2}));
+    assert(same_direction(Vec{3.3, 2.5}, Vec{3.3, 2.5}));
+    assert(!same_direction(Vec{-1, -1}, Vec{1, 1}));
+    assert(!same_direction(Vec{-1, 2}, Vec{3, 1}));
+    assert(!same_direction(Vec{-1, 5}, Vec{1, 5}));
+    cout << "Same Direction OK!\n";
+    // Make sure that we can tell what slope is more negative between two vectors
+    // (by slope more negative we mean it comes at a higher angle using RHR
+    // when we start at 0 and go to 360)
+    assert(beats_more_neg_slope(Vec{1, 1}, Vec{2, 2}));
+    assert(beats_more_neg_slope(Vec{1, 1}, Vec{0, 1}));
+    assert(!beats_more_neg_slope(Vec{0, 1}, Vec{2, 2}));
+    assert(!beats_more_neg_slope(Vec{0, 1}, Vec{0.0001, 1}));
+    assert(!beats_more_neg_slope(Vec{1, 1}, Vec{2, 1}));
+    assert(beats_more_neg_slope(Vec{2, 2}, Vec{0, 2}));
+    assert(beats_more_neg_slope(Vec{-2, 3}, Vec{-2, 1}));
+    assert(!beats_more_neg_slope(Vec{-10.322, 1.1}, Vec{-100.23, 20032.2}));
+    assert(beats_more_neg_slope(Vec{-2, 3}, Vec{-2, -2}));
+    assert(!beats_more_neg_slope(Vec{-2, -3}, Vec{-2, 1}));
+    assert(!beats_more_neg_slope(Vec{-2, -3}, Vec{-2, -1}));
+    assert(beats_more_neg_slope(Vec{-2, -3}, Vec{-2, -100}));
+    assert(beats_more_neg_slope(Vec{-2, -100}, Vec{0, -2}));
+    assert(!beats_more_neg_slope(Vec{1, 1}, Vec{1, 0}));
+    assert(!beats_more_neg_slope(Vec{1, 1}, Vec{0, -2}));
+    assert(beats_more_neg_slope(Vec{-100, -100}, Vec{1, 1}));
+    cout << "Beats more negative slope OK\n";
+    // Make sure that we can see, when two vectors are in the same quadrant,
+    // which one we want to take assuming we want to take the one at the next RHR assuming that
+    // we start at 0,0 and go up and to the right
+    assert(beats_in_quad(I, Vec{1, 1}, Vec{1, 2}));
+    assert(beats_in_quad(I, Vec{1, 1}, Vec{1, 2}));
+    assert(beats_in_quad(I, Vec{1, 1000}, Vec{0, 1}));
+    assert(!beats_in_quad(I, Vec{0, 1}, Vec{0.000001, 1}));
+    assert(beats_in_quad(II, Vec{-1, 2}, Vec{-1, 1}));
+    assert(beats_in_quad(II, Vec{-1, 1}, Vec{-1, 0.5}));
+    assert(beats_in_quad(II, Vec{-1, 1}, Vec{-1, 0}));
+    assert(beats_in_quad(II, Vec{-100, 1}, Vec{-1, 0}));
+    assert(beats_in_quad(III, Vec{-1, -1}, Vec{-1, -2}));
+    assert(!beats_in_quad(III, Vec{-1, -1}, Vec{-1, -0.5}));
+    assert(!beats_in_quad(III, Vec{-1, -2}, Vec{-1, -1}));
+    assert(beats_in_quad(III, Vec{-1, -2}, Vec{0, -1}));
+    assert(!beats_in_quad(IV, Vec{1, -1}, Vec{1, -2}));
+    assert(!beats_in_quad(IV, Vec{1, -0.5}, Vec{1, -1}));
+    assert(!beats_in_quad(IV, Vec{1, 0}, Vec{1, -1}));
+    cout << "Beats in Quad OK!\n";
+    // TODO
+    cout << "Beats Ok!\n";
+    // Make sure that we are able to, for sequence of points, find the next point
+    // that we should go to
+    // TODO
+    // Make sure that we are able to, for a pair of convex hulls, merge them
+    // TODO
+    // Test convex hull for some big problems
+    // TOOD
+
+    // vector<Point> points{
+    //     Point{1, 2},
+    //     Point{2, 5},
+    //     Point{0, 0},
+    //     Point{1, 1},
+    //     Point{2, 2},
+    // };
+    // vector<Point> hull = convex_hull(points);
+    // for (Point& p : hull) {
+    //     cout << "Point " << p.x << " " << p.y << "\n";
+    // }
 }
