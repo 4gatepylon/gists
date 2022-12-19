@@ -4,8 +4,11 @@
 #include <algorithm>
 #include <math.h>
 
-// Compile with
-// clang++ convex_hull.cc -std=c++11 -stdlib=libc++ -Weverything
+// Compile and run with
+// rm -rf && clang++ convex_hull.cc -std=c++11 -stdlib=libc++ && ./a.out
+//
+// add `-Weverything` as in `clang++ convex_hull.cc -std=c++11 -stdlib=libc++ -Weverything`
+// to make this give you helpful warnings (though a lot of them are not helpful)
 using namespace std;
 
 // We will be doing an in-place merge ala Merge-Sort
@@ -35,10 +38,8 @@ using namespace std;
 // For numerical issues and testing
 struct Float {
     double v;
-
-    Float(double u) {
-        v = u;
-    }
+    Float(double u) { v = u; }
+    Float(const Float& u) { v = u.v; }
 
     #define EPS 0.000000000001
     bool operator ==(const Float& u) const { return abs(v - u.v) < EPS; }
@@ -47,10 +48,11 @@ struct Float {
     Float operator -(const Float& u) const{ return Float(v - u.v); }
     Float operator *(const Float& u) const{ return Float(v * u.v); }
     Float operator /(const Float& u) const{ return Float(v / u.v); }
-    bool operator >(const Float& u) const{ return v > u.v; }
-    bool operator >=(const Float& u) const{ return v >= u.v; }
-    bool operator <(const Float& u) const{ return v < u.v; }
-    bool operator <=(const Float& u) const{ return v <= u.v; }
+    bool operator >(const Float& u) const { return v > u.v; }
+    bool operator >=(const Float& u) const { return v >= u.v; }
+    bool operator <(const Float& u) const { return v < u.v; }
+    bool operator <=(const Float& u) const { return v <= u.v; }
+    bool operator =(const Float& u) { return v = u.v; }
     
 };
 
@@ -177,6 +179,7 @@ static inline bool beats_in_quad(
 static inline pair<Quadrant, bool> beats(
     // Current heading quadrant
     Quadrant curr_quad,
+    // Current point (could be in another quadrant)
     Point curr_pnt,
     // Next options
     Point cand_beater,
@@ -198,9 +201,9 @@ static inline pair<Quadrant, bool> beats(
     int loser_quad_diff = quadrant_diff(curr_quad, loser_quad);
     // If there is a change in quadrants that is larger for one vector than the other
     // just return the smaller change
-    if (beater_quad_diff > loser_quad_diff) {
+    if (beater_quad_diff < loser_quad_diff) {
         return pair<Quadrant, bool>(beater_quad, true);
-    } else if (beater_quad_diff < loser_quad_diff) {
+    } else if (beater_quad_diff > loser_quad_diff) {
         return pair<Quadrant, bool>(loser_quad, false);
     }
     // If the changes are both in the same quadrant, return the one that leads to the less
@@ -209,7 +212,85 @@ static inline pair<Quadrant, bool> beats(
     return pair<Quadrant, bool>(beater_quad, beats_in_quad(beater_quad, beater_traj, loser_traj));
 }
 
-/** TODO FIX BELOW
+static inline pair<Quadrant, Point> beating_point(
+    // Current heading quadrant
+    Quadrant curr_quad, 
+    // Current point
+    Point curr_pnt, 
+    vector<Point>& pnts) {
+    Point beater = pnts[0];
+    if (beater == curr_pnt) {
+        assert(pnts.size() > 1);
+        beater = pnts[1];
+    }
+    Quadrant beater_quad = quadrant(point_diff(beater, curr_pnt));
+    for (int i = 1; i < pnts.size(); i++) {
+        if (pnts[i] == curr_pnt) continue;
+
+        pair<Quadrant, bool> beater_beats = beats(curr_quad, curr_pnt, beater, pnts[i]);
+        if (!beater_beats.second) {
+            beater = pnts[i];
+            beater_quad = beater_beats.first;
+        }
+    }
+    return pair<Quadrant, Point>(beater_quad, beater);
+}
+
+static inline vector<Point> convex_hull_slow(vector<Point>& points) {
+    assert(points.size() > 0);
+
+    // Get the lowest point (must be in the convex hull)
+    int m = 0;
+    for (int i = 1; i < points.size(); i++) {
+        if (points[i].x < points[m].x || points[i].x == points[m].x && points[i].y < points[m].y) m = i;
+    }
+
+    vector<Point> hull = vector<Point>(1, points[m]);
+    if (points.size() == 1) return hull;
+
+    // Current quadrant tells us where our heading's quadrant is
+    // We start at II because we choose the minimum x point to be the
+    // starting point, meaning that anyone pointing to us must be pointing
+    // towards II or III. The only case in which they point to III is when
+    // there are multiple on the same X, in which case we pick the lowest one,
+    // but in that case it doesn't matter since the up vector <1, 0> is in
+    // quadrant I and so those will be ignored anyways.
+    Quadrant curr_quad = II;
+
+    bool next_point_in_hull = false;
+    while (!next_point_in_hull) {
+        pair<Quadrant, Point> beater = beating_point(curr_quad, hull[hull.size() - 1], points);
+        next_point_in_hull = beater.second == hull[0];
+
+        if (!next_point_in_hull) {
+            curr_quad = beater.first;
+            hull.push_back(beater.second);
+        }
+        if (hull.size() > points.size()) {
+            throw new runtime_error("Ran forever :(");
+        }
+    }
+    return hull;
+}
+
+// Functions to transform for Leetcode's format to/from my own
+static inline vector<int> point2vec(Point& p) {
+    assert(p.x.v == (int)p.x.v && p.y.v == (int)p.y.v);
+    return vector<int>{(int)p.x.v, (int)p.y.v};
+}
+static inline Point vec2point(vector<int>& p) { return Point{p[0], p[1]}; }
+static inline vector<Point> vecs2points(vector<vector<int>>& vs) {
+    vector<Point> ps;
+    for (auto& v : vs) ps.push_back(vec2point(v));
+    return ps;
+}
+static inline vector<vector<int>> points2vecs(vector<Point>& ps) {
+    vector<vector<int>> vs;
+    for (auto& p : ps) vs.push_back(point2vec(p));
+    return vs;
+}
+
+/** TODO FIX BELOW (RECURSIVE NLOGN IMPLEMENTATION)
  * 
 // Return the last index that is relevant + 1 (i.e. exclusive)
 static int fill_hull(vector<Point>& hull, int i, int j) {
@@ -417,25 +498,81 @@ int main() {
     assert(!beats_in_quad(IV, Vec{1, -0.5}, Vec{1, -1}));
     assert(!beats_in_quad(IV, Vec{1, 0}, Vec{1, -1}));
     cout << "Beats in Quad OK!\n";
-    // TODO
+    assert(!beats(I, Point{1, 0.5}, Point{1, 0}, Point{1, 1}).second);
+    assert(beats(I, Point{1, 0.5}, Point{1, 1}, Point{1, 0}).second);
+    assert(beats(IV, Point{0, 0}, Point{1, 1}, Point{1, 2}).second);
+    assert(!beats(IV, Point{0, 0}, Point{1, 1}, Point{1, -1}).second);
+    assert(beats(IV, Point{0, 0}, Point{1, -1}, Point{1, 1}).second);
+    assert(beats(IV, Point{0, 0}, Point{-1, 1}, Point{-1, 0.5}).second);
+    assert(beats(II, Point{0, 0}, Point{1, -1}, Point{1, 1}).second);
+    assert(beats(II, Point{0, 0}, Point{-1, -1}, Point{1, -1}).second);
+    assert(beats(II, Point{0, 0}, Point{-1, 0}, Point{-1, -1}).second);
+    assert(beats(III, Point{0, 0}, Point{-1, -1}, Point{-1, -2}).second);
+    assert(beats(III, Point{0, 0}, Point{0, -1}, Point{1, -1}).second);
+    assert(beats(III, Point{0, 0}, Point{1, -1}, Point{1, 0}).second);
     cout << "Beats Ok!\n";
-    // Make sure that we are able to, for sequence of points, find the next point
-    // that we should go to
-    // TODO
-    // Make sure that we are able to, for a pair of convex hulls, merge them
-    // TODO
-    // Test convex hull for some big problems
-    // TOOD
+    // Make sure that we are able to, for a sequence of points, find the next point
+    // to go to
+    vector<Point> tbp{
+        Point{1, 2},
+        Point{2, 5},
+        Point{0, 0},
+        Point{1, 1},
+    };
+    assert(beating_point(I, tbp[0], tbp).second == tbp[1]);
+    assert(beating_point(I, tbp[1], tbp).second == tbp[2]);
+    assert(beating_point(I, tbp[2], tbp).second == tbp[3]);
+    assert(beating_point(I, tbp[3], tbp).second == tbp[1]);
+    assert(beating_point(II, tbp[0], tbp).second == tbp[2]);
+    assert(beating_point(II, tbp[1], tbp).second == tbp[2]);
+    assert(beating_point(II, tbp[2], tbp).second == tbp[3]);
+    assert(beating_point(II, tbp[3], tbp).second == tbp[2]);
+    assert(beating_point(III, tbp[0], tbp).second == tbp[2]);
+    assert(beating_point(III, tbp[1], tbp).second == tbp[2]);
+    assert(beating_point(III, tbp[2], tbp).second == tbp[3]);
+    assert(beating_point(III, tbp[3], tbp).second == tbp[2]);
+    assert(beating_point(IV, tbp[0], tbp).second == tbp[1]);
+    assert(beating_point(IV, tbp[1], tbp).second == tbp[2]);
+    assert(beating_point(IV, tbp[2], tbp).second == tbp[3]);
+    assert(beating_point(IV, tbp[3], tbp).second == tbp[1]);
+    cout << "Finding the beater OK!\n";
+    // Test convex hull for some bigger problems
+    vector<pair<vector<Point>, vector<Point>>> tests {
+        // First vector is points and second vector is expected hull
+        {
+            tbp, 
+            vector<Point>{Point{2, 5}, Point{0, 0}, Point{1, 1}}
+        },
+        {
+            vector<Point>{Point{1, 1},Point{2, 2},Point{2, 0},Point{2, 4},Point{3, 3},Point{4, 2}},
+            vector<Point>{Point{1, 1},Point{3, 3},Point{2, 0},Point{4, 2},Point{2, 4}}
+        },
+        {
+            vector<Point>{Point{1, 2},Point{2, 2},Point{4, 2}},
+            vector<Point>{Point{4, 2},Point{2, 2},Point{1, 2}}
+        },
+    };
+    int testi = 1;
+    for (auto& p : tests) {
+        auto& points = p.first;
+        auto& exp_hull = p.second;
+        auto hull = convex_hull_slow(points);
 
-    // vector<Point> points{
-    //     Point{1, 2},
-    //     Point{2, 5},
-    //     Point{0, 0},
-    //     Point{1, 1},
-    //     Point{2, 2},
-    // };
-    // vector<Point> hull = convex_hull(points);
-    // for (Point& p : hull) {
-    //     cout << "Point " << p.x << " " << p.y << "\n";
-    // }
+        // Make sure that the two hulls are equal
+        // (we don't guarantee order and I'm tool lazy to create templating for this shit's hashing)
+        cout << "Trying test " << testi << "\n";
+        assert(hull.size() == exp_hull.size());
+        for (auto& exp : exp_hull) {
+            bool found = false;
+            for (auto& p : hull) {
+                if (p == exp) {
+                    found = true;
+                    break;
+                }
+            }
+            assert(found);
+        }
+        testi ++;
+    }
+    cout << "Convex hull (slow) passes simple test cases!\n";
 }
