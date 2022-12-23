@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <algorithm>
 #include <math.h>
+#include <unordered_set>
 
 // Compile and run with
 // rm -rf && clang++ convex_hull.cc -std=c++11 -stdlib=libc++ && ./a.out
@@ -11,29 +12,7 @@
 // to make this give you helpful warnings (though a lot of them are not helpful)
 using namespace std;
 
-// We will be doing an in-place merge ala Merge-Sort
-// Here is an example run-through
-// The idea only differs for our case insofar that when
-// you merge sometimes you might skip points and be happy to
-// overwrite them.
-// The idea is that the write array is the lower array in memory,
-// if it wins it just wins, if it loses then we swap with B and increment A's pointer
-// that way, we build the join sorted area in the beginning without allocating space.
-// If A is out of space we can just copy B where the point points to because
-// what is left in A is not important or we are in B and that is the beginning of B
-// which we already displaced.
-//
-// 1 2 3 4
-// 2 4 5
-// 
-//
-// 1 2 >3 4
-// 2 4 5
-// 1 2 2 >4
-// 3 4 5
-// 1 2 2 3
-// 4 4 5
-// 1 2 2 3 4 4 5
+// Slow (and in theory also fast, but haven't finished yet) convex hull
 
 // For numerical issues and testing
 struct Float {
@@ -69,6 +48,22 @@ struct Vec_t {
 };
 
 typedef struct Point_t Point;
+// Debugging helper
+void print_point_vector(vector<Point>& hull) {
+    for (auto& p : hull) cout << "(" << p.x.v << ", " << p.y.v << ") ";
+    cout << "\n";
+}
+
+namespace std {
+    template<>
+    struct hash<Point> {
+        size_t operator()(const Point &p) const {
+            return hash<double>()(p.x.v) ^ hash<double>()(p.y.v);
+        }
+    };
+}
+
+
 typedef struct Vec_t Vec;
 
 typedef int Quadrant;
@@ -134,14 +129,8 @@ static inline bool same_direction(Vec v, Vec u) {
 // NOTE: that is not vector, it is SLOPE (so it is assumed that you are in the same quadrant)
 static inline bool beats_more_neg_slope(Vec beater_traj, Vec loser_traj){
     if (same_direction(beater_traj, loser_traj)) {
-        // If one dimension is zero, then we want to pick the other dimension that is bigger
-        if (beater_traj.x == 0) {
-            if (beater_traj.y < 0) return beater_traj.y <= loser_traj.y;
-            else                   return beater_traj.y >= loser_traj.y;
-        } else if (beater_traj.y == 0) {
-            if (beater_traj.x < 0) return beater_traj.x <= loser_traj.x;
-            else                   return beater_traj.x >= loser_traj.x;
-        }
+        // Return the one that is closer (the convention they seem to want)
+        return norm2(beater_traj) <= norm2(loser_traj);
     }
     return beater_traj.y * loser_traj.x <= beater_traj.x * loser_traj.y;
 }
@@ -244,8 +233,10 @@ static inline vector<Point> convex_hull_slow(vector<Point>& points) {
     for (int i = 1; i < points.size(); i++) {
         if (points[i].x < points[m].x || points[i].x == points[m].x && points[i].y < points[m].y) m = i;
     }
-
-    vector<Point> hull = vector<Point>(1, points[m]);
+    
+    unordered_set<Point> visited;
+    visited.insert(points[m]);
+    vector<Point> hull(1, points[m]);
     if (points.size() == 1) return hull;
 
     // Current quadrant tells us where our heading's quadrant is
@@ -257,17 +248,19 @@ static inline vector<Point> convex_hull_slow(vector<Point>& points) {
     // quadrant I and so those will be ignored anyways.
     Quadrant curr_quad = II;
 
-    bool next_point_in_hull = false;
-    while (!next_point_in_hull) {
+    while (true) {
         pair<Quadrant, Point> beater = beating_point(curr_quad, hull[hull.size() - 1], points);
-        next_point_in_hull = beater.second == hull[0];
-
-        if (!next_point_in_hull) {
+        if (visited.find(beater.second) == visited.end()) {
             curr_quad = beater.first;
             hull.push_back(beater.second);
+            visited.insert(beater.second);
+        } else {
+            break;
         }
         if (hull.size() > points.size()) {
-            throw new runtime_error("Ran forever :(");
+            print_point_vector(hull);
+            cout << "Ran Forever :( i.e. hull too big";
+            throw new runtime_error("Hull too big");
         }
     }
     return hull;
@@ -292,6 +285,30 @@ static inline vector<vector<int>> points2vecs(vector<Point>& ps) {
 
 /** TODO FIX BELOW (RECURSIVE NLOGN IMPLEMENTATION)
  * 
+ * 
+// We will be doing an in-place merge ala Merge-Sort
+// Here is an example run-through
+// The idea only differs for our case insofar that when
+// you merge sometimes you might skip points and be happy to
+// overwrite them.
+// The idea is that the write array is the lower array in memory,
+// if it wins it just wins, if it loses then we swap with B and increment A's pointer
+// that way, we build the join sorted area in the beginning without allocating space.
+// If A is out of space we can just copy B where the point points to because
+// what is left in A is not important or we are in B and that is the beginning of B
+// which we already displaced.
+//
+// 1 2 3 4
+// 2 4 5
+// 
+//
+// 1 2 >3 4
+// 2 4 5
+// 1 2 2 >4
+// 3 4 5
+// 1 2 2 3
+// 4 4 5
+// 1 2 2 3 4 4 5
 // Return the last index that is relevant + 1 (i.e. exclusive)
 static int fill_hull(vector<Point>& hull, int i, int j) {
     // Should have at least two points
@@ -561,15 +578,19 @@ int main() {
         // Make sure that the two hulls are equal
         // (we don't guarantee order and I'm tool lazy to create templating for this shit's hashing)
         cout << "Trying test " << testi << "\n";
+        cout << "Expected a hull of size " << exp_hull.size() << " and got one of size " << hull.size() << "\n";
+        if (hull.size() != exp_hull.size()) { print_point_vector(hull); }
         assert(hull.size() == exp_hull.size());
         for (auto& exp : exp_hull) {
             bool found = false;
             for (auto& p : hull) {
                 if (p == exp) {
+                    cout << "\tFound point " << exp.x.v << ", " << exp.y.v << "\n";
                     found = true;
                     break;
                 }
             }
+            if (!found) cout << "Failed to find point " << exp.x.v << ", " << exp.y.v << "\n";
             assert(found);
         }
         testi ++;
