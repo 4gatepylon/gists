@@ -1,7 +1,9 @@
-Problems on this test:
+Intially had Problems on this test:
 - https://leetcode.com/problems/mirror-reflection/ 
 - https://leetcode.com/problems/detonate-the-maximum-bombs/ 
 - https://leetcode.com/problems/count-lattice-points-inside-a-circle/
 
 Allocated time:
 1 hour, goal is to finish each problem in 20 minutes.
+
+But it was too hard with the mirror reflection to find quickly...
