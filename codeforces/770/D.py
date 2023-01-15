@@ -42,8 +42,25 @@
 # You can't make Mahiru color something you add if it wasn't there already
 # When would Mahiru take something you added? Only if when you add it it's no good, so why would you add anything
 # that does not force Mahiru's hand?
+# 1
+# 1
+#
+# 1 2
+# 1 2
+# or
 # 1 1
+# 1 2
+# or
+# 2 1
+# 1 2
+# or
 # 2 2
+# 1 2
+#
+#
+#
+#
+#
 
 #  At each element
 #  - If a number shows up twice we must take it (if two numbers out of range fail or if you had to take 
