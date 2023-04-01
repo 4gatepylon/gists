@@ -1,0 +1,21 @@
+h1 {
+    color: red;
+}
+
+p.megaEmoji {
+    background-color: red;
+    text-indent: none;
+    /* width: 100%; */
+    font-size: 100px;
+    /* display: inline-block; */
+    margin-top: 0px;
+}
+
+.ender {
+    display: none;
+    width: 0px;
+}
+
+p#big {
+    width: 1000px;
+}

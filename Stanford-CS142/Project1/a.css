@@ -1,0 +1,64 @@
+html {
+    margin: 0px;
+    padding: 0px;
+    height: 100%;
+    width: 100%;
+    overflow: visible;
+}
+body {
+    margin: 0px;
+    padding: 0px;
+    border: 0px;
+    margin-top: 10px; 
+    margin-bottom: 10px;
+    height: calc(100% - 20px);
+    width: 100%;
+    font-family: Tahoma;
+    overflow: visible;
+}
+
+div.container {
+    display: flex;
+    flex-direction: column;
+    /* take up the entire space allowable by the body */
+    min-height: 100%;
+
+    /* The main axis is left-right adn the cross-axis is top-bottom, according to
+    `https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Flexible_Box_Layout/Aligning_Items_in_a_Flex_Container`
+    we want to use justify-content, however from 
+    `https://stackoverflow.com/questions/69660912/confused-between-justify-content-align-items-text-align`
+    we learn that setting flex to column changes the axes
+    */
+    align-items: center;
+    justify-content: space-between;
+}
+
+/*make the spacing dynamic!*/
+div.box0 {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    width: 100px;
+    height: 100px;
+    border-top: solid 1px #687291;
+    background-color: #dfe1e7;
+    font-size: 40px;
+}
+
+div.box1 {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    width: 100px;
+    height: 100px;
+    border-top: solid 1px #687291;
+    background-color: #eeeff2;
+    font-size: 40px;
+}
+
+#F {
+    background-color: #687291;
+    border: solid 4px black;
+    justify-content: center;
+    align-items: center;
+}

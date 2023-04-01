@@ -1,0 +1,25 @@
+12
+4
+bcd cd a d abc ab
+3
+i io i oi
+2
+g g
+3
+t al lt a
+4
+bba a ab a abb ba
+2
+a a
+2
+a b
+3
+a aa a aa
+3
+a ab ba a
+4
+a a ab abc ca bca
+5
+a a aab abca aabc ab abc aa
+6
+a a aa aa aab baa aabb bbaa abbaa aabba

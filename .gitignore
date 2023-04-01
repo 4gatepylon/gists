@@ -4,3 +4,6 @@
 **/*.out
 *.out.dSYM/
 **/*.out.dSYM/**
+**/node_modules/
+*/node_modules/
+node_modules/

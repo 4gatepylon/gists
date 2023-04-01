@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+        .box {
+            display: flex;
+            width: 200px;
+            height: 200px;
+            margin: 0px;
+        }
+        .flex {
+            display: flex;
+            flex-direction: row;
+            justify-content: left;
+        }
+        .one {
+            background-color: red;
+            padding: 20px;
+            border: 10px solid black;
+        }
+        .two {
+            background-color: green;
+            border: 20px solid black;
+        }
+        .three {
+            background-color: blue;
+            border: 10px solid black;
+        }
+    </style>
+    <title>Document</title>
+  </head>
+  <body>
+    <!-- Solution 1: slightly overcomplicated, using some hacks -->
+    <!-- <div class="flex">
+        <div class="box one"></div>
+        <div class="box two" style="visibility: hidden;"></div>
+        <div class="box three" style="visibility: hidden;"></div>
+    </div>
+    <div class="flex" style="height: 240px">
+        <div class="box one" style="visibility: hidden;"></div>
+        <div class="box two"></div>
+        <div class="box three" style="visibility: hidden;"></div>
+    </div>
+    <div class="flex">
+        <div class="box one" style="visibility: hidden;"></div>
+        <div class="box two" style="visibility: hidden;"></div>
+        <div class="box three"></div>
+    </div> -->
+    <div class="flex">
+        <div class="box one"></div>
+    </div>
+    <div class="flex" style="height: 240px">
+        <div class="box two" style="margin-left: 260px;"></div>
+    </div>
+    <div class="flex">
+        <div class="box three" style="margin-left: calc(260px + 240px);"></div>
+    </div>
+  </body>
+</html>

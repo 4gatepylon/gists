@@ -1,0 +1,9 @@
+# What is this?
+This is from [stanford's cs142 fullstack course](http://web.stanford.edu/class/cs142/project2.html).
+
+This section is basically just on JS practice. It is mainly useful to practice some functional constructs.
+
+You can download like this
+```
+curl http://web.stanford.edu/class/cs142/downloads/project2.zip --output p2zip.zip
+```

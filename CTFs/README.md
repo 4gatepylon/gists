@@ -1,0 +1,1 @@
+Snippets of codes from CTF style competitions or tasks

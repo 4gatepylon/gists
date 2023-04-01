@@ -1,0 +1,67 @@
+html {
+  margin: 0px;
+  padding: 0px;
+  border: none;
+  height: 100%;
+  width: 100%;
+  overflow: visible;
+}
+
+body {
+  height: 100%;
+  width: 100%;
+  margin: 10px;
+  padding: 0;
+  font-family: Tahoma;
+  font-size: 40px;
+  overflow: visible;
+}
+
+div.container {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  height: 100%;
+  width: 100%;
+  overflow: visible;
+}
+
+div.box0,
+div.box1 {
+  display: flex;
+  flex-direction: row;
+  /* you need to disable flex resizing to enable overflow to work!*/
+  flex-shrink: 0;
+  flex-grow: 0;
+  height: 150px;
+  width: 100px;
+  background: #eeeff2;
+  border-left: dotted 10px #d0d0ff;
+  padding: 10px;
+  margin-left: 10px;
+}
+
+/* TODO fix hovering */
+div.box0:hover,
+div.box1:hover {
+  /* Turns out you can have unique cursor images:
+    https://developer.mozilla.org/en-US/docs/Web/CSS/cursor
+    */
+  cursor: grab; /* pointer is another option */
+  color: goldenrod;
+  background-color: yellow;
+}
+
+#F {
+  /* key was to use fixed and not absolute! */
+  /* use fixed because its parent (flexrow) already fucks it up,
+        may be smarter to do this differently in some way... not sure how in
+        a way that generalizes... */
+  position: fixed;
+  /* location - height (top left) - padding top & bottom (no margins) 
+        - body margin bottom & top */
+  top: calc(100% - 150px - 20px - 20px);
+  /* location - width (top left) - margin left (no margin right) - border left (no border right) - padding left & right
+        - body margin let & right */
+  left: calc(100% - 100px - 10px - 10px - 20px - 20px);
+}
