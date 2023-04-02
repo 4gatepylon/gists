@@ -12,6 +12,9 @@
   "author": "Mendel Rosenblum <mendel@cs.stanford.edu> ",
   "license": "ISC",
   "dependencies": {
+    "@emotion/react": "^11.10.6",
+    "@emotion/styled": "^11.10.6",
+    "@mui/material": "^5.11.15",
     "express": "^4.17.2",
     "file-loader": "^6.2.0",
     "jsdom": "^21.1.1",

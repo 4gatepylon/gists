@@ -1,0 +1,52 @@
+div.nav {
+    /* should be on the top of the screen */
+    /* position: fixed;
+    left: 0px;
+    top: 0px; */
+    /* vw = viewport width */
+    width: 100vw;
+    max-height: 50vh;
+    /* must be at the front */
+    z-index: 0;
+    margin: 0px;
+    padding: 0px;
+    overflow: scroll;
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.2);
+    opacity: 0.2;
+    cursor: default;
+    transition: all 1s ease;
+}
+.nav:hover {
+    transition: all 1s ease;
+    background: rgba(255, 255, 255, 1);
+    opacity: 1;
+}
+
+.box {
+    padding: 2px;
+    border-radius: 1px;
+    border: 1px solid black;
+}
+
+.block50 {
+    display: flex;
+    flex-wrap: wrap;
+    overflow: scroll;
+    flex-direction: row;
+    max-width: 50vw;
+}
+
+.flexrow {
+    display: flex;
+    flex-direction: row;
+}
+
+.flexcol {
+    display: flex;
+    flex-direction: column;
+}
+
+#nChanger {
+    margin-bottom: 10px;
+}

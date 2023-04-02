@@ -1,0 +1,36 @@
+.blocker20px {
+    height: 20px;
+    visibility: hidden;
+}
+
+.flexrow {
+    display: flex;
+    flex-direction: row;
+}
+
+.flexcol {
+    display: flex;
+    flex-direction: column;
+}
+
+.link {
+    display: flex;
+    background-color: aliceblue;
+    transition: all 1s ease;
+    text-decoration: none;
+    color: black;
+    border: 1px solid grey;
+    border-radius: 2px;
+    padding: 5px;
+    margin: 10px;
+}
+.link:visited {
+    color: default;
+}
+.link:hover {
+    transition: all 1s ease;
+    background-color: aquamarine;
+    border: 2px solid black;
+    border-radius: 5px;
+    
+}
