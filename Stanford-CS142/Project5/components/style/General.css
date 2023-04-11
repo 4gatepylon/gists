@@ -1,0 +1,20 @@
+.cs142-space-between {
+    display: flex;
+    justify-content: space-between;
+  }
+
+.cs142-from-left{
+    display: flex;
+    flex-direction: row;
+    justify-content: start;
+}
+
+.cs142-from-right {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: start;
+}
+
+.cs142-bold {
+    font-weight: bold;
+}
