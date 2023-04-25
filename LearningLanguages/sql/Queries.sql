@@ -26,4 +26,10 @@ DELETE FROM Person
         GROUP BY email
     );
 
--- TBD
+-- https://leetcode.com/problems/combine-two-tablesB
+SELECT p.firstName, p.lastName, a.city, a.state FROM
+Person AS p LEFT OUTER JOIN Address as a ON
+p.personId = a.personId;
+
+-- 
+
