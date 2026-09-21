@@ -7,6 +7,8 @@ TODO(hadriano) look into cross-k sharing somehow for the min cost cache
 
 import sys
 from typing import List, Tuple, Iterator, Dict
+import logging
+
 
 # O(max prime factor less than your value) <= O(v) <= O(n)
 #
@@ -40,11 +42,16 @@ def produce_prime_factors_single(
 # O(n) runetime, each one taking O(n)
 #
 # DECLARE: O(n**2) runtime
-def produce_prime_factors(values: int, PRIMES_LIST: List[int], prime_factors: dict[int, int]) -> None:
+def produce_prime_factors(
+    values: int, PRIMES_LIST: List[int], prime_factors: dict[int, int]
+) -> None:
     prime_factors[1] = 1
     for v in values:
+        # print("> produce_prime_factors_single v:", v, file=sys.stderr) # DEBUG
         produce_prime_factors_single(v, prime_factors, PRIMES_LIST, 0)
-    assert all(v in prime_factors for v in values)
+    assert all(
+        v in prime_factors for v in values
+    ), "All prime factors for all values should be computed"
 
 
 # Read the cache by yielding through the "pointers" until we hit a prime
@@ -54,22 +61,25 @@ def produce_prime_factors(values: int, PRIMES_LIST: List[int], prime_factors: di
 def get_prime_factors(v: int, prime_factors: dict[int, int]) -> Iterator[int]:
     if v not in prime_factors:
         raise ValueError(f"Value {v} not found in prime factors cache")
+    if v == 1:
+        raise ValueError(f"Value {v} is 1, which means something is wrong in this call")
     next = prime_factors[v]
-    while next != 1:
+    while v != 1:
+        # print(f">>>>> next={next}, v={v}", file=sys.stderr) # DEBUG
         # Make sure this is sane
-        assert next != v  # If equal, then we hit 1
-        assert v > next
-        assert v % next == 0
+        assert next != v, f"If equal, then we hit 1. Right now, next={next}, v={v}"
+        assert v > next, f"v should be greater than next. Right now, v={v}, next={next}"
+        assert v % next == 0, f"v should be divisible by next. Right now, v={v}, next={next}"
 
         # Extract and yield the prime (this could also be cached) with a sanity check
         p = v // next
-        assert is_prime(
-            p
-        )  # This should usually not be run; we use a shitty sqrt(n) algorithm for the debugging only
+        # assert is_prime(
+        #     p
+        # )  # This should usually not be run; we use a shitty sqrt(n) algorithm for the debugging only
         yield p
 
         # Get the next step
-        v, next = next, next = prime_factors[v]
+        v, next = next, prime_factors[next]
 
 
 # Solve with maximal reuse (one)
@@ -81,21 +91,38 @@ def solve_single(
     v: int,
     k: int,
     min_operations_to_get_under_k: Dict[int, int],
-    prime_factors: dict[int, tuple[int, int]],
+    prime_factors: dict[int, int],
 ) -> int:
+    # print("CALL(solve_single): v,k =", v,k, file=sys.stderr) # DEBUG
     if v <= k:
         return 0
     if min_operations_to_get_under_k.get(v, None) is not None:
-        yield min_operations_to_get_under_k[v]
-    prime_factors: list[int] = get_prime_factors(v, prime_factors)
+        min_cost = min_operations_to_get_under_k[v]
+        assert isinstance(
+            min_cost, int
+        ), f"Minimum cost should be an integer, but got {type(min_cost)}"
+        return min_cost
+    these_prime_factors: list[int] = list(get_prime_factors(v, prime_factors))
     min_cost = None
-    for p in prime_factors:
+    for p in these_prime_factors:
         d = v // p
-        this_cost = 1 + solve_single(d, k, min_operations_to_get_under_k)
+        # print(f" >> p, d @ v={v}:", p, d, file=sys.stderr) # DEBUG1
+        this_cost_minus_1 = solve_single(
+            d, k, min_operations_to_get_under_k, prime_factors
+        )
+        # print(f" >> this_cost_minus_1 @ v,p ={v},{p}:", this_cost_minus_1, file=sys.stderr) # DEBUG
+        assert isinstance(
+            this_cost_minus_1, int
+        ), f"Solution should be an integer, but got {type(this_cost_minus_1)}"
+        this_cost = p * this_cost_minus_1 + 1
         if min_cost is None or this_cost < min_cost:
             min_cost = this_cost
+    assert (
+        min_cost is not None
+    ), f"Minimum cost should be set. Never got it for {v}. Prime factors: {list(prime_factors)}"
     min_operations_to_get_under_k[v] = min_cost
     return min_cost
+
 
 # Solve with maximal reused (all)
 # Takes
@@ -111,20 +138,43 @@ def solve_single(
 #      analysis is probably not very accurate; these are all bounds)
 #
 # DECLARE: O(n * log(n) ** log(n)) runtime (worst case)
-def solve(values: List[int], k: int, PRIMES_LIST: List[int], PRIME_FACTORS: dict[int, int]) -> int:
+def solve(
+    values: List[int], k: int, PRIMES_LIST: List[int], PRIME_FACTORS: dict[int, int]
+) -> int:
     """Return the minimum operations to make every multiset value at most k."""
+    assert isinstance(values, list), f"Values should be a list, but got {type(values)}"
+    assert isinstance(k, int), f"k should be an integer, but got {type(k)}"
+    assert isinstance(
+        PRIMES_LIST, list
+    ), f"PRIMES_LIST should be a list, but got {type(PRIMES_LIST)}"
+    assert isinstance(
+        PRIME_FACTORS, dict
+    ), f"PRIME_FACTORS should be a dict, but got {type(PRIME_FACTORS)}"
+
     # 0. Primes list is already computed
     # 1. Update the prime factors
-    produce_prime_factors(values, PRIMES_LIST, PRIME_FACTORS)
+    # print("@" * 100, file=sys.stderr) # DEBUG
+    # print("Producing prime factors", file=sys.stderr) # DEBUG
+    produce_prime_factors(values, PRIMES_LIST, PRIME_FACTORS) # KEEP
+    # print(f"Values: {values}", file=sys.stderr) # DEBUG
+    # print(f"Primes list first 10: {PRIMES_LIST[:10]}", file=sys.stderr) # DEBUG
+    # print(f"Prime factors: {PRIME_FACTORS}", file=sys.stderr) # DEBUG
+    # print("+" * 100, file=sys.stderr) # DEBUG
 
     # 2. Find individual costs
     min_costs = []
     min_operations_to_get_under_k: dict[int, int] = {}
     for v in values:
-        min_costs.append(solve_single(v, k, min_operations_to_get_under_k))
+        # print("> solve_single v:", v, file=sys.stderr) # DEBUG
+        sol = solve_single(v, k, min_operations_to_get_under_k, PRIME_FACTORS)
+        assert isinstance(
+            sol, int
+        ), f"Solution should be an integer, but got {type(sol)}"
+        min_costs.append(sol)
 
     # Reduce individual cost to total costs (these can be treated independently)
     return sum(min_costs)
+
 
 # O(sqrt(n)) algorithm for the debugging only
 def is_prime(n: int) -> bool:

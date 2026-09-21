@@ -24,8 +24,9 @@ section in the repository's [AGENTS.md](../../AGENTS.md).
 | [G — Modular Tree](https://codeforces.com/contest/2266/problem/G) | [2266G_modular_tree](2266G_modular_tree/) |
 | [H — Deque Malfunction](https://codeforces.com/contest/2266/problem/H) | [2266H_deque_malfunction](2266H_deque_malfunction/) |
 
-**Practice status:** F–H were not attempted. Their folders contain the statements,
-boilerplate, and samples in case we return to them later.
+**Practice status:** D — Falling Concrete is not implemented, and F–H were not
+attempted. Their folders contain the statements, boilerplate, and samples in
+case we return to these problems later.
 
 ## Run the examples
 
