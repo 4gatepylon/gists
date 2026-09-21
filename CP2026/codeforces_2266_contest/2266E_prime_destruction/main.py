@@ -6,8 +6,7 @@ TODO(hadriano) look into cross-k sharing somehow for the min cost cache
 """
 
 import sys
-from typing import List, Tuple, Iterator, Dict
-import logging
+from typing import List, Iterator, Dict
 
 
 # O(max prime factor less than your value) <= O(v) <= O(n)
@@ -15,7 +14,7 @@ import logging
 # DECLARE: O(n) runtime
 def produce_prime_factors_single(
     v: int,
-    prime_factors: dict[int, tuple[int, int]],
+    prime_factors: Dict[int, int],
     PRIMES_LIST: List[int],
     primes_list_index: int,
 ) -> List[int]:
@@ -43,7 +42,7 @@ def produce_prime_factors_single(
 #
 # DECLARE: O(n**2) runtime
 def produce_prime_factors(
-    values: int, PRIMES_LIST: List[int], prime_factors: dict[int, int]
+    values: int, PRIMES_LIST: List[int], prime_factors: Dict[int, int]
 ) -> None:
     prime_factors[1] = 1
     for v in values:
@@ -58,7 +57,7 @@ def produce_prime_factors(
 # O(num prime factors) <= O(log(v)) <= O(log()) since all a_i <= N
 #
 # DECLARE: O(log(n)) runtime
-def get_prime_factors(v: int, prime_factors: dict[int, int]) -> Iterator[int]:
+def get_prime_factors(v: int, prime_factors: Dict[int, int]) -> Iterator[int]:
     if v not in prime_factors:
         raise ValueError(f"Value {v} not found in prime factors cache")
     if v == 1:
@@ -69,7 +68,9 @@ def get_prime_factors(v: int, prime_factors: dict[int, int]) -> Iterator[int]:
         # Make sure this is sane
         assert next != v, f"If equal, then we hit 1. Right now, next={next}, v={v}"
         assert v > next, f"v should be greater than next. Right now, v={v}, next={next}"
-        assert v % next == 0, f"v should be divisible by next. Right now, v={v}, next={next}"
+        assert (
+            v % next == 0
+        ), f"v should be divisible by next. Right now, v={v}, next={next}"
 
         # Extract and yield the prime (this could also be cached) with a sanity check
         p = v // next
@@ -91,7 +92,7 @@ def solve_single(
     v: int,
     k: int,
     min_operations_to_get_under_k: Dict[int, int],
-    prime_factors: dict[int, int],
+    prime_factors: Dict[int, int],
 ) -> int:
     # print("CALL(solve_single): v,k =", v,k, file=sys.stderr) # DEBUG
     if v <= k:
@@ -102,7 +103,7 @@ def solve_single(
             min_cost, int
         ), f"Minimum cost should be an integer, but got {type(min_cost)}"
         return min_cost
-    these_prime_factors: list[int] = list(get_prime_factors(v, prime_factors))
+    these_prime_factors: List[int] = list(get_prime_factors(v, prime_factors))
     min_cost = None
     for p in these_prime_factors:
         d = v // p
@@ -139,7 +140,7 @@ def solve_single(
 #
 # DECLARE: O(n * log(n) ** log(n)) runtime (worst case)
 def solve(
-    values: List[int], k: int, PRIMES_LIST: List[int], PRIME_FACTORS: dict[int, int]
+    values: List[int], k: int, PRIMES_LIST: List[int], PRIME_FACTORS: Dict[int, int]
 ) -> int:
     """Return the minimum operations to make every multiset value at most k."""
     assert isinstance(values, list), f"Values should be a list, but got {type(values)}"
@@ -155,7 +156,7 @@ def solve(
     # 1. Update the prime factors
     # print("@" * 100, file=sys.stderr) # DEBUG
     # print("Producing prime factors", file=sys.stderr) # DEBUG
-    produce_prime_factors(values, PRIMES_LIST, PRIME_FACTORS) # KEEP
+    produce_prime_factors(values, PRIMES_LIST, PRIME_FACTORS)  # KEEP
     # print(f"Values: {values}", file=sys.stderr) # DEBUG
     # print(f"Primes list first 10: {PRIMES_LIST[:10]}", file=sys.stderr) # DEBUG
     # print(f"Prime factors: {PRIME_FACTORS}", file=sys.stderr) # DEBUG
@@ -163,7 +164,7 @@ def solve(
 
     # 2. Find individual costs
     min_costs = []
-    min_operations_to_get_under_k: dict[int, int] = {}
+    min_operations_to_get_under_k: Dict[int, int] = {}
     for v in values:
         # print("> solve_single v:", v, file=sys.stderr) # DEBUG
         sol = solve_single(v, k, min_operations_to_get_under_k, PRIME_FACTORS)
@@ -199,7 +200,7 @@ def main() -> None:
     test_cases = next(tokens)
     output = []
     PRIMES_LIST = get_primes_list(2 * 10**5)
-    PRIME_FACTORS: dict[int, int] = {}
+    PRIME_FACTORS: Dict[int, int] = {}
     for _ in range(test_cases):
         n, k = next(tokens), next(tokens)
         values = [next(tokens) for _ in range(n)]

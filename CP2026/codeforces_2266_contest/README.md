@@ -26,7 +26,7 @@ section in the repository's [AGENTS.md](../../AGENTS.md).
 
 **Practice status:** D — Falling Concrete is not implemented, and F–H were not
 attempted. Their folders contain the statements, boilerplate, and samples in
-case we return to these problems later.
+case we return to these problems later. Prime destruction is implemented but gets a runtime error.
 
 ## Run the examples
 
