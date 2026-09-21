@@ -24,9 +24,13 @@ section in the repository's [AGENTS.md](../../AGENTS.md).
 | [G — Modular Tree](https://codeforces.com/contest/2266/problem/G) | [2266G_modular_tree](2266G_modular_tree/) |
 | [H — Deque Malfunction](https://codeforces.com/contest/2266/problem/H) | [2266H_deque_malfunction](2266H_deque_malfunction/) |
 
-**Practice status:** D — Falling Concrete is not implemented, and F–H were not
-attempted. Their folders contain the statements, boilerplate, and samples in
-case we return to these problems later. Prime destruction is implemented but gets a runtime error.
+**Practice status:**
+1. D — Falling Concrete is not implemented.
+2. F–H were not attempted. Their folders contain the statements, boilerplate, and samples in case we return to these problems later.
+2. E - Prime destruction is implemented but gets a runtime error in some runtimes and is too slow in others:
+    - Runtime error on Pypy 3.6.9
+    - Too slow (i.e. `Time limit exceeded on test 4`) on Pypy 3.10
+    - Too slow on Python 3.13.2
 
 ## Run the examples
 
