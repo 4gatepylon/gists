@@ -45,3 +45,31 @@ the repository, especially `CP2026/`.
 - Boilerplate help is welcome and encouraged: stdin/stdout handling, parsing the
   stated input, empty function stubs, compilation/run commands, and sample-test
   setup. Keep the actual solving logic for the user unless they ask for it.
+
+## Codeforces Python compatibility
+
+- Use annotations imported from `typing` for Codeforces Python submissions:
+  `Tuple[int, int, int]`, `List[int]`, `List[Tuple[int, int]]`, `Dict[int, int]`,
+  and `Set[int]`. Import only the names needed. Use `Optional[T]` and
+  `Union[T, U]` for optional/union types. Plain `int`, `str`, `bool`, and `None`
+  annotations are fine.
+- **Do not use `from __future__ import annotations`; use `typing` instead.**
+  That future import requires Python 3.7+, so it fails on Python 3.6 runners.
+  Built-in generic annotations such as `tuple[int, int]` and `list[int]`
+  require Python 3.9+ when evaluated. See
+  [Python's compatibility notes](https://peps.python.org/pep-0585/#backwards-compatibility).
+- Match syntax and standard-library features to the selected judge interpreter.
+  Passing pytest on a newer local Python does not establish judge compatibility.
+  When available, also run the sample through the target interpreter; clearly
+  distinguish a syntax check from actually running that Python version.
+
+Observed with Codeforces 2266A using the `PyPy 3` selection: a submission failed
+at line 1 with:
+
+```text
+SyntaxError: future feature annotations is not defined
+```
+
+Removing the future import and using `from typing import Tuple` with
+`Tuple[int, int, int]` fixed the submission. This was an annotation compatibility
+issue, not a stdin/stdout issue.
