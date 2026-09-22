@@ -1,6 +1,8 @@
 """Implement these two functions, then run: python3 -m pytest -q
 
 See README.md for the inclusive integer-time contract and empty-input behavior.
+
+TODO(hadriano) verify continuous time semantics more clearly/carefully
 """
 
 import itertools
@@ -103,6 +105,11 @@ def _intersection(interval1: Period, interval2: Period) -> Period:
 #
 # In the first case the two entries should NOT be merged since otherwise they would have been merged in the stream itself.
 # In the second case you
+#
+# TODO(hadriano) how to prove this? I am not sure. I think it might be some combination of like:
+# - if there is a gap in the output, was there a gap somewhere in the input?
+# - yes because in the 2 case if there were no gap in the input there wouldn't be a gap in the output
+# - in the N case all you need is that gaps don't go away; as you can see from ^ gaps don't go away, so they can only accum..
 #
 # def _canonicalize_intervals(intervals: List[Period]) -> List[Period]:
 #     """Return a list of intervals that are canonicalized, i.e. no two adjacent intervals are overlapping"""

@@ -1,28 +1,85 @@
-"""Handwritten inputs and expected answers for the motion practice tests.
+"""### Part 1: input and output lengths
 
-The interview_example output comes from the supplied statement; all others are
-local practice fixtures. camera_periods are manually declared drawing metadata,
-not arguments supplied to the user's functions. Raw streams are explicit below.
-No fixture computes active runs, intersections, or expected answers.
+43 cases. Axes: **number of input readings × number of output periods**.
+`L` = below threshold, `E` = equal, `H` = above.
+Cells show representative existing dynamics, not every fixture.
+
+```text
++----------------+-----------+--------------------------+--------------------------+-------------------+
+| Input readings | 0 periods | 1 period                 | 2 periods                | >2 periods        |
++----------------+-----------+--------------------------+--------------------------+-------------------+
+| 0              | empty     | impossible               | impossible               | impossible        |
++----------------+-----------+--------------------------+--------------------------+-------------------+
+| 1              | L         | E, H                     | impossible               | impossible        |
++----------------+-----------+--------------------------+--------------------------+-------------------+
+| 2              | MISSING   | MISSING                  | impossible               | impossible        |
++----------------+-----------+--------------------------+--------------------------+-------------------+
+| 3              | LLL       | HHH, EEE, HLL, LHL, LLH, | HLH (sparse timestamps), | impossible        |
+|                |           | HHL, LHH, HEH            | ELH (times a, a+.5, a+1) |                   |
++----------------+-----------+--------------------------+--------------------------+-------------------+
+| >3             | MISSING   | EHEH, LHHL, LEEL,        | HHLLLHH,                 | HLELH,            |
+|                |           | equality at run ends     | HELHE (fractional gap),  | mixed run lengths |
+|                |           |                          | HHLEH (tiny gap)         |                   |
++----------------+-----------+--------------------------+--------------------------+-------------------+
+```
+
+**MISSING** = possible but untested. **Impossible** = no valid input of that
+length can produce that many periods. Timing and threshold variants belong
+inside the corresponding cells.
+
+### Part 2: number of streams
+
+70 cases, grouped by stream count and primary behavior:
+
+  - Zero streams (1): empty-input behavior.
+  - One stream (4)
+    - Activity cardinality (2): empty stream or one run.
+    - Multiple runs (2): wider gaps or gaps between consecutive integers.
+  - Two streams (50)
+    - Inactive cameras (2): both inactive or one just below threshold.
+    - One-period geometry (7): identical, partial overlap, containment,
+      equal starts/ends, and reversed arrangements.
+    - Disjoint activity (5): either time ordering, consecutive integer
+      endpoints, interleaved runs, distinct singleton times.
+    - Closed endpoints and singletons (5): shared endpoint, equal singletons,
+      singleton inside/at either end of a period.
+    - Overlap multiplicity and gaps (9): one/two/three overlaps on a segment,
+      singleton overlaps, small gaps, mixed gap sizes.
+    - Multiple runs in both streams (8): repeated fragments, changing end order,
+      unmatched heads/tails, tied ends, repeated endpoint overlaps, combined gaps.
+    - Sampling and time range (3): distinct sample times, zero/large timestamps.
+    - Threshold values (5): equality at boundaries/singletons, zero, one, custom.
+    - Fractional time (6): overlap without integer times, shared endpoint,
+      disjoint periods, sub-unit/tiny gaps, uninterrupted activity.
+  - Three or more streams (15)
+    - Empty/inactive cameras (3): all empty, one empty, one inactive.
+    - All-camera agreement (4): interval, singleton, disjoint third camera,
+      pairwise overlap without a common period.
+    - Later-camera effects (4): remove, split, trim, stagger gaps.
+    - More cameras and duplicates (3): four nested, fifth blocks, duplicate stream.
+    - Sparse sampling (1): different sampling times across three cameras.
 """
 
 from typing import List, NamedTuple, Optional, Tuple, Union
 
 Timestamp = Union[int, float]
 Reading = Tuple[Timestamp, float]
-Period = Tuple[int, int]
+Period = Tuple[Timestamp, Timestamp]
 
 
 class Case(NamedTuple):
     name: str
+    # Raw readings passed to the functions.
     streams: List[List[Reading]]
     expected: List[Period]
     reason: str
     threshold: float
+    # Declared Part 1 periods for diagnostics and diagrams.
     camera_periods: Optional[List[List[Period]]]
 
 
 PART1_CASES = [
+    ### Empty input and activity cardinality ###
     Case(
         name='empty_stream',
         streams=[[]],
@@ -79,6 +136,8 @@ PART1_CASES = [
         reason='Equality and strict activity share one run.',
         threshold=0.8, camera_periods=None,
     ),
+
+    ### Run position, length, and equality at boundaries ###
     Case(
         name='singleton_at_start',
         streams=[[(1, 0.9), (2, 0.1), (3, 0.2)]],
@@ -163,6 +222,8 @@ PART1_CASES = [
         reason='An exactly-threshold reading does not split a run.',
         threshold=0.8, camera_periods=None,
     ),
+
+    ### Inactive readings and transitions between runs ###
     Case(
         name='one_below_splits_runs',
         streams=[[(1, 0.9), (2, 0.8), (3, 0.79), (4, 0.8), (5, 0.9)]],
@@ -198,6 +259,8 @@ PART1_CASES = [
         reason='Several consecutive inactive readings create one separation.',
         threshold=0.8, camera_periods=None,
     ),
+
+    ### Run endpoints, sparse sampling, and timestamp scale ###
     Case(
         name='last_active_not_first_inactive',
         streams=[[(2, 0.9), (5, 0.9), (100, 0.2)]],
@@ -240,6 +303,8 @@ PART1_CASES = [
         reason='Return timestamp values, not list indices.',
         threshold=0.8, camera_periods=None,
     ),
+
+    ### Threshold extremes, custom values, and exact comparisons ###
     Case(
         name='threshold_zero',
         streams=[[(1, 0.0), (4, 0.3), (8, 1.0)]],
@@ -282,31 +347,57 @@ PART1_CASES = [
         reason='Close values on both sides; no tolerance is specified.',
         threshold=0.8, camera_periods=None,
     ),
+
+    ### Continuous time: fractional endpoints and positive gaps ###
     Case(
         name='adjacent_runs_preserved_in_part1',
         streams=[[(1, 0.9), (3, 0.8), (3.5, 0.2), (4, 0.9), (6, 0.8)]],
         expected=[(1, 3), (4, 6)],
-        reason='Part 1 preserves raw runs split by an inactive half-tick; only Part 2 canonicalizes integer coverage.',
+        reason='The inactive reading at 3.5 creates a positive gap, preserved in both parts.',
         threshold=0.8, camera_periods=None,
     ),
     Case(
         name='adjacent_singletons_preserved_in_part1',
         streams=[[(2, 0.8), (2.5, 0.2), (3, 0.9)]],
         expected=[(2, 2), (3, 3)],
-        reason='An inactive half-tick splits two neighboring active integer samples into distinct Part 1 runs.',
+        reason='An inactive reading at 2.5 separates two singleton periods in continuous time.',
         threshold=0.8, camera_periods=None,
     ),
+    Case(
+        name='fractional_active_endpoints',
+        streams=[[(0.125, 0.8), (0.5, 0.9), (0.75, 0.2)]],
+        expected=[(0.125, 0.5)],
+        reason='Qualifying timestamps may be fractional; preserve the exact endpoints.',
+        threshold=0.8, camera_periods=None,
+    ),
+    Case(
+        name='fractional_gap_between_runs',
+        streams=[[(1, 0.9), (1.25, 0.8), (1.3125, 0.2), (1.375, 0.9), (1.5, 0.8)]],
+        expected=[(1, 1.25), (1.375, 1.5)],
+        reason='A positive gap smaller than one time unit still separates runs.',
+        threshold=0.8, camera_periods=None,
+    ),
+    Case(
+        name='tiny_positive_gap_between_runs',
+        streams=[[(0, 0.9), (1, 0.9), (1.00000000005, 0.2), (1.0000000001, 0.8), (2, 0.9)]],
+        expected=[(0, 1), (1.0000000001, 2)],
+        reason='Even a very small positive gap is retained; there is no timestamp tolerance.',
+        threshold=0.8, camera_periods=None,
+    ),
+
+    ### Example with two active runs ###
     Case(
         name='interview_example',
         streams=[[(1, 0.4), (5, 0.2), (11, 0.9), (15, 0.9), (17, 0.8), (20, 0.3), (27, 0.9), (31, 1.0), (36, 0.8)]],
         expected=[(11, 17), (27, 36)],
-        reason='The example supplied in the interview account.',
+        reason='Two active runs separated by a below-threshold reading.',
         threshold=0.8, camera_periods=None,
     ),
 ]
 
 
-PART2_CASES = [
+PART2_NO_STREAM_CASES = [
+    ### Zero streams: defined empty-input behavior ###
     Case(
         name='no_cameras',
         streams=[
@@ -316,6 +407,11 @@ PART2_CASES = [
         threshold=0.8,
         camera_periods=[],
     ),
+]
+
+
+PART2_ONE_STREAM_CASES = [
+    ### Empty stream and one active run ###
     Case(
         name='one_empty_camera',
         streams=[
@@ -327,53 +423,6 @@ PART2_CASES = [
         camera_periods=[[]],
     ),
     Case(
-        name='all_cameras_empty',
-        streams=[
-            [],
-            [],
-            [],
-        ],
-        expected=[],
-        reason='Several cameras, all empty.',
-        threshold=0.8,
-        camera_periods=[[], [], []],
-    ),
-    Case(
-        name='empty_camera_among_active',
-        streams=[
-            [(1, 0.9), (5, 0.9)],
-            [],
-            [(2, 0.9), (4, 0.9)],
-        ],
-        expected=[],
-        reason='Every camera is required, including an empty one.',
-        threshold=0.8,
-        camera_periods=[[(1, 5)], [], [(2, 4)]],
-    ),
-    Case(
-        name='inactive_camera_among_active',
-        streams=[
-            [(1, 0.9), (5, 0.9)],
-            [(1, 0.1), (3, 0.2), (5, 0.0)],
-            [(2, 0.9), (4, 0.9)],
-        ],
-        expected=[],
-        reason='A present camera with no active periods blocks all motion.',
-        threshold=0.8,
-        camera_periods=[[(1, 5)], [], [(2, 4)]],
-    ),
-    Case(
-        name='all_cameras_inactive',
-        streams=[
-            [(1, 0.1), (4, 0.2)],
-            [(2, 0.0), (5, 0.7)],
-        ],
-        expected=[],
-        reason='Both cameras have readings, but none qualify.',
-        threshold=0.8,
-        camera_periods=[[], []],
-    ),
-    Case(
         name='one_camera_one_run',
         streams=[
             [(2, 0.9), (6, 0.9)],
@@ -383,6 +432,8 @@ PART2_CASES = [
         threshold=0.8,
         camera_periods=[[(2, 6)]],
     ),
+
+    ### Multiple runs: preserve every positive gap ###
     Case(
         name='one_camera_separated_runs',
         streams=[
@@ -398,11 +449,40 @@ PART2_CASES = [
         streams=[
             [(1, 0.9), (3, 0.9), (3.5, 0.2), (4, 0.9), (6, 0.9)],
         ],
-        expected=[(1, 6)],
-        reason='Part 2 canonicalizes adjacent inclusive integer periods even with one camera.',
+        expected=[(1, 3), (4, 6)],
+        reason='One camera preserves the entire gap (3,4), including the inactive reading at 3.5.',
         threshold=0.8,
         camera_periods=[[(1, 3), (4, 6)]],
     ),
+]
+
+
+PART2_TWO_STREAM_CASES = [
+    ### Inactive cameras block common activity ###
+    Case(
+        name='all_cameras_inactive',
+        streams=[
+            [(1, 0.1), (4, 0.2)],
+            [(2, 0.0), (5, 0.7)],
+        ],
+        expected=[],
+        reason='Both cameras have readings, but none qualify.',
+        threshold=0.8,
+        camera_periods=[[], []],
+    ),
+    Case(
+        name='one_camera_just_below_threshold',
+        streams=[
+            [(1, 0.9), (5, 0.9)],
+            [(1, 0.799999), (5, 0.799999)],
+        ],
+        expected=[],
+        reason='A nearly-active camera still blocks the entire result.',
+        threshold=0.8,
+        camera_periods=[[(1, 5)], []],
+    ),
+
+    ### One-period geometry: equality, overlap, and containment ###
     Case(
         name='identical_periods',
         streams=[
@@ -480,17 +560,8 @@ PART2_CASES = [
         threshold=0.8,
         camera_periods=[[(1, 7)], [(4, 7)]],
     ),
-    Case(
-        name='endpoint_only_overlap',
-        streams=[
-            [(1, 0.9), (4, 0.9)],
-            [(4, 0.9), (7, 0.9)],
-        ],
-        expected=[(4, 4)],
-        reason='A shared endpoint is a valid singleton overlap.',
-        threshold=0.8,
-        camera_periods=[[(1, 4)], [(4, 7)]],
-    ),
+
+    ### Disjoint periods and distinct singleton times ###
     Case(
         name='disjoint_first_earlier',
         streams=[
@@ -520,7 +591,7 @@ PART2_CASES = [
             [(3, 0.9), (4, 0.9)],
         ],
         expected=[],
-        reason='Adjacent periods from DIFFERENT cameras do not overlap.',
+        reason='The positive gap (2,3) means the cameras never overlap.',
         threshold=0.8,
         camera_periods=[[(1, 2)], [(3, 4)]],
     ),
@@ -531,20 +602,9 @@ PART2_CASES = [
             [(4, 0.9), (5, 0.9), (7.5, 0.2), (10, 0.9), (11, 0.9)],
         ],
         expected=[],
-        reason='Multiple alternating periods, but no shared tick.',
+        reason='Multiple alternating periods, but no shared active time.',
         threshold=0.8,
         camera_periods=[[(1, 2), (7, 8)], [(4, 5), (10, 11)]],
-    ),
-    Case(
-        name='same_singleton',
-        streams=[
-            [(3, 0.9)],
-            [(3, 0.9)],
-        ],
-        expected=[(3, 3)],
-        reason='Two cameras active at the same single tick.',
-        threshold=0.8,
-        camera_periods=[[(3, 3)], [(3, 3)]],
     ),
     Case(
         name='different_singletons',
@@ -556,6 +616,30 @@ PART2_CASES = [
         reason='Consecutive singletons in different cameras are still disjoint.',
         threshold=0.8,
         camera_periods=[[(3, 3)], [(4, 4)]],
+    ),
+
+    ### Closed endpoints and singleton intersections ###
+    Case(
+        name='endpoint_only_overlap',
+        streams=[
+            [(1, 0.9), (4, 0.9)],
+            [(4, 0.9), (7, 0.9)],
+        ],
+        expected=[(4, 4)],
+        reason='A shared endpoint is a valid singleton overlap.',
+        threshold=0.8,
+        camera_periods=[[(1, 4)], [(4, 7)]],
+    ),
+    Case(
+        name='same_singleton',
+        streams=[
+            [(3, 0.9)],
+            [(3, 0.9)],
+        ],
+        expected=[(3, 3)],
+        reason='Two cameras active at the same single instant.',
+        threshold=0.8,
+        camera_periods=[[(3, 3)], [(3, 3)]],
     ),
     Case(
         name='singleton_inside_period',
@@ -590,6 +674,8 @@ PART2_CASES = [
         threshold=0.8,
         camera_periods=[[(7, 7)], [(2, 7)]],
     ),
+
+    ### Multiple overlaps and positive gaps on one segment ###
     Case(
         name='one_overlap_on_one_segment',
         streams=[
@@ -608,7 +694,7 @@ PART2_CASES = [
             [(1, 0.9), (2, 0.9), (3, 0.2), (4, 0.9), (5, 0.9)],
         ],
         expected=[(2, 2), (4, 4)],
-        reason='Requested example: tick 3 is absent, so retain two singleton outputs.',
+        reason='The positive gap (2,4) separates the two singleton outputs.',
         threshold=0.8,
         camera_periods=[[(2, 4)], [(1, 2), (4, 5)]],
     ),
@@ -624,35 +710,35 @@ PART2_CASES = [
         camera_periods=[[(2, 10)], [(1, 4), (7, 12)]],
     ),
     Case(
-        name='two_adjacent_overlaps_merge',
+        name='two_adjacent_overlaps_preserve_gap',
         streams=[
             [(2, 0.9), (4, 0.9)],
             [(1, 0.9), (3, 0.9), (3.5, 0.2), (4, 0.9), (5, 0.9)],
         ],
-        expected=[(2, 4)],
-        reason='Requested merge: [2,3] and [4,4] cover every integer from 2 through 4.',
+        expected=[(2, 3), (4, 4)],
+        reason='The positive gap (3,4) must remain even though its endpoints are consecutive integers.',
         threshold=0.8,
         camera_periods=[[(2, 4)], [(1, 3), (4, 5)]],
     ),
     Case(
-        name='two_adjacent_singleton_overlaps_merge',
+        name='two_adjacent_singleton_overlaps_preserve_gap',
         streams=[
             [(2, 0.9), (3, 0.9)],
             [(1, 0.9), (2, 0.9), (2.5, 0.2), (3, 0.9), (4, 0.9)],
         ],
-        expected=[(2, 3)],
-        reason='Two adjacent singleton overlaps form one inclusive period.',
+        expected=[(2, 2), (3, 3)],
+        reason='Distinct singleton overlaps do not include any time between them.',
         threshold=0.8,
         camera_periods=[[(2, 3)], [(1, 2), (3, 4)]],
     ),
     Case(
-        name='one_missing_tick_prevents_merge',
+        name='inactive_reading_prevents_merge',
         streams=[
             [(2, 0.9), (5, 0.9)],
             [(1, 0.9), (2, 0.9), (3, 0.2), (4, 0.9), (6, 0.9)],
         ],
         expected=[(2, 2), (4, 5)],
-        reason='Tick 3 is missing; do not bridge it.',
+        reason='The inactive reading at 3 separates runs; preserve the whole gap (2,4).',
         threshold=0.8,
         camera_periods=[[(2, 5)], [(1, 2), (4, 6)]],
     ),
@@ -668,35 +754,37 @@ PART2_CASES = [
         camera_periods=[[(1, 12)], [(0, 2), (5, 7), (10, 14)]],
     ),
     Case(
-        name='three_adjacent_overlaps_merge',
+        name='three_adjacent_overlaps_preserve_gaps',
         streams=[
             [(1, 0.9), (9, 0.9)],
             [(0, 0.9), (2, 0.9), (2.5, 0.2), (3, 0.9), (5, 0.9), (5.5, 0.2), (6, 0.9), (10, 0.9)],
         ],
-        expected=[(1, 9)],
-        reason='A chain of three adjacent overlap pieces becomes one period.',
+        expected=[(1, 2), (3, 5), (6, 9)],
+        reason='Both positive gaps in a chain of three overlap pieces remain.',
         threshold=0.8,
         camera_periods=[[(1, 9)], [(0, 2), (3, 5), (6, 10)]],
     ),
     Case(
-        name='merge_then_gap_then_merge',
+        name='small_gaps_around_larger_gap',
         streams=[
             [(2, 0.9), (12, 0.9)],
             [(1, 0.9), (3, 0.9), (3.5, 0.2), (4, 0.9), (5, 0.9), (6.5, 0.2), (8, 0.9), (9, 0.9), (9.5, 0.2), (10, 0.9), (14, 0.9)],
         ],
-        expected=[(2, 5), (8, 12)],
-        reason='Two adjacent chains separated by missing ticks 6 and 7.',
+        expected=[(2, 3), (4, 5), (8, 9), (10, 12)],
+        reason='Preserve the smaller gaps (3,4) and (9,10), as well as the larger gap (5,8).',
         threshold=0.8,
         camera_periods=[[(2, 12)], [(1, 3), (4, 5), (8, 9), (10, 14)]],
     ),
+
+    ### Fragmentation across both streams and changing interval boundaries ###
     Case(
         name='later_chain_after_earlier_chain',
         streams=[
             [(2, 0.9), (4, 0.9), (5.5, 0.2), (7, 0.9), (10, 0.9)],
             [(1, 0.9), (3, 0.9), (3.5, 0.2), (4, 0.9), (5, 0.9), (5.5, 0.2), (6, 0.9), (8, 0.9), (8.5, 0.2), (9, 0.9), (11, 0.9)],
         ],
-        expected=[(2, 4), (7, 10)],
-        reason='Requested later-chain scenario: both long periods have multiple overlaps.',
+        expected=[(2, 3), (4, 4), (7, 8), (9, 10)],
+        reason='Both long periods have multiple overlaps whose positive gaps remain.',
         threshold=0.8,
         camera_periods=[[(2, 4), (7, 10)], [(1, 3), (4, 5), (6, 8), (9, 11)]],
     ),
@@ -706,8 +794,8 @@ PART2_CASES = [
             [(1, 0.9), (3, 0.9), (3.5, 0.2), (4, 0.9), (6, 0.9), (7.5, 0.2), (9, 0.9), (11, 0.9), (11.5, 0.2), (12, 0.9), (15, 0.9)],
             [(2, 0.9), (4, 0.9), (4.5, 0.2), (5, 0.9), (7, 0.9), (8.5, 0.2), (10, 0.9), (12, 0.9), (12.5, 0.2), (13, 0.9), (14, 0.9)],
         ],
-        expected=[(2, 6), (10, 14)],
-        reason='Fragmentation changes in both cameras; two output chains.',
+        expected=[(2, 3), (4, 4), (5, 6), (10, 11), (12, 12), (13, 14)],
+        reason='Gaps from either camera remain, including around singleton overlaps.',
         threshold=0.8,
         camera_periods=[[(1, 3), (4, 6), (9, 11), (12, 15)], [(2, 4), (5, 7), (10, 12), (13, 14)]],
     ),
@@ -767,6 +855,220 @@ PART2_CASES = [
         camera_periods=[[(2, 4), (8, 10)], [(1, 2), (4, 8), (10, 11)]],
     ),
     Case(
+        name='staggered_gaps_form_larger_gap',
+        streams=[
+            [(0, 0.9), (2, 0.9), (3, 0.2), (4, 0.9), (8, 0.9)],
+            [(0, 0.9), (3, 0.9), (4, 0.2), (5, 0.9), (8, 0.9)],
+        ],
+        expected=[(0, 2), (5, 8)],
+        reason='The output gap (2,5) combines gaps from different cameras; neither alone spans it.',
+        threshold=0.8,
+        camera_periods=[[(0, 2), (4, 8)], [(0, 3), (5, 8)]],
+    ),
+
+    ### Sampling and timestamp scale ###
+    Case(
+        name='overlap_without_shared_reading_timestamps',
+        streams=[
+            [(1, 0.9), (6, 0.9)],
+            [(4, 0.9), (10, 0.9)],
+        ],
+        expected=[(4, 6)],
+        reason='No raw timestamp is shared; their inferred periods still overlap.',
+        threshold=0.8,
+        camera_periods=[[(1, 6)], [(4, 10)]],
+    ),
+    Case(
+        name='timestamp_zero_overlap',
+        streams=[
+            [(0, 0.9), (3, 0.9)],
+            [(0, 0.9)],
+        ],
+        expected=[(0, 0)],
+        reason='Zero is a valid singleton overlap.',
+        threshold=0.8,
+        camera_periods=[[(0, 3)], [(0, 0)]],
+    ),
+    Case(
+        name='large_timestamps_overlap',
+        streams=[
+            [(1000000000000, 0.9), (1000000000010, 0.9)],
+            [(1000000000004, 0.9), (1000000000020, 0.9)],
+        ],
+        expected=[(1000000000004, 1000000000010)],
+        reason='Large timestamp values must be preserved exactly.',
+        threshold=0.8,
+        camera_periods=[[(1000000000000, 1000000000010)], [(1000000000004, 1000000000020)]],
+    ),
+
+    ### Threshold equality, extremes, and custom values ###
+    Case(
+        name='threshold_equality_at_overlap_boundaries',
+        streams=[
+            [(0, 0.2), (1, 0.9), (4, 0.8), (6, 0.2)],
+            [(1, 0.2), (2, 0.8), (5, 0.9), (7, 0.2)],
+        ],
+        expected=[(2, 4)],
+        reason='Both overlap boundaries are exactly threshold in their own camera.',
+        threshold=0.8,
+        camera_periods=[[(1, 4)], [(2, 5)]],
+    ),
+    Case(
+        name='exact_threshold_singletons',
+        streams=[
+            [(1, 0.2), (3, 0.8), (5, 0.2)],
+            [(2, 0.2), (3, 0.8), (4, 0.2)],
+        ],
+        expected=[(3, 3)],
+        reason='Equality alone supplies a shared singleton.',
+        threshold=0.8,
+        camera_periods=[[(3, 3)], [(3, 3)]],
+    ),
+    Case(
+        name='threshold_zero_different_extents',
+        streams=[
+            [(1, 0.0), (5, 0.2)],
+            [(3, 0.0), (8, 1.0)],
+        ],
+        expected=[(3, 5)],
+        reason='All readings qualify, but camera time extents still constrain overlap.',
+        threshold=0.0,
+        camera_periods=[[(1, 5)], [(3, 8)]],
+    ),
+    Case(
+        name='threshold_one_split_overlap',
+        streams=[
+            [(1, 1.0), (2, 1.0), (3, 0.99), (4, 1.0), (5, 1.0)],
+            [(1, 0.9), (2, 1.0), (4, 1.0), (5, 0.9)],
+        ],
+        expected=[(2, 2), (4, 4)],
+        reason='Only readings equal to one qualify, including isolated boundary overlaps.',
+        threshold=1.0,
+        camera_periods=[[(1, 2), (4, 5)], [(2, 4)]],
+    ),
+    Case(
+        name='custom_threshold_all_cameras',
+        streams=[
+            [(1, 0.49), (2, 0.5), (4, 0.6), (6, 0.49)],
+            [(2, 0.49), (3, 0.5), (5, 0.9), (7, 0.49)],
+        ],
+        expected=[(3, 4)],
+        reason='A nondefault threshold applies to every stream.',
+        threshold=0.5,
+        camera_periods=[[(2, 4)], [(3, 5)]],
+    ),
+
+    ### Continuous time: fractional overlap, endpoints, and gaps ###
+    Case(
+        name='fractional_overlap_without_integer_timestamp',
+        streams=[
+            [(0.125, 0.9), (0.625, 0.9)],
+            [(0.375, 0.8), (0.875, 0.9)],
+        ],
+        expected=[(0.375, 0.625)],
+        reason='A nonempty common interval can contain no integer timestamp.',
+        threshold=0.8,
+        camera_periods=[[(0.125, 0.625)], [(0.375, 0.875)]],
+    ),
+    Case(
+        name='fractional_shared_endpoint',
+        streams=[
+            [(0.125, 0.9), (0.375, 0.9)],
+            [(0.375, 0.8), (0.625, 0.9)],
+        ],
+        expected=[(0.375, 0.375)],
+        reason='Closed intervals meeting at a fractional endpoint share exactly that instant.',
+        threshold=0.8,
+        camera_periods=[[(0.125, 0.375)], [(0.375, 0.625)]],
+    ),
+    Case(
+        name='fractional_disjoint_cameras',
+        streams=[
+            [(0.125, 0.9), (0.375, 0.9)],
+            [(0.5, 0.9), (0.875, 0.9)],
+        ],
+        expected=[],
+        reason='A sub-unit gap between cameras is still disjoint; timestamps are not rounded.',
+        threshold=0.8,
+        camera_periods=[[(0.125, 0.375)], [(0.5, 0.875)]],
+    ),
+    Case(
+        name='fractional_gap_preserved',
+        streams=[
+            [(0, 0.9), (2, 0.9)],
+            [(1, 0.9), (1.25, 0.8), (1.3125, 0.2), (1.375, 0.9), (1.5, 0.8)],
+        ],
+        expected=[(1, 1.25), (1.375, 1.5)],
+        reason='Activity in the first camera cannot fill the second camera\'s fractional gap.',
+        threshold=0.8,
+        camera_periods=[[(0, 2)], [(1, 1.25), (1.375, 1.5)]],
+    ),
+    Case(
+        name='tiny_positive_gap_preserved',
+        streams=[
+            [(0, 0.9), (3, 0.9)],
+            [(0, 0.9), (1, 0.9), (1.00000000005, 0.2), (1.0000000001, 0.8), (2, 0.9)],
+        ],
+        expected=[(0, 1), (1.0000000001, 2)],
+        reason='A very small positive gap must not be filled by a tolerance or adjacency rule.',
+        threshold=0.8,
+        camera_periods=[[(0, 3)], [(0, 1), (1.0000000001, 2)]],
+    ),
+    Case(
+        name='uninterrupted_fractional_period',
+        streams=[
+            [(0, 0.9), (0.25, 0.8), (0.75, 0.9), (1, 0.9)],
+            [(0.125, 0.9), (0.5, 0.8), (0.875, 0.9)],
+        ],
+        expected=[(0.125, 0.875)],
+        reason='Interior sample boundaries introduce no gap or redundant output split.',
+        threshold=0.8,
+        camera_periods=[[(0, 1)], [(0.125, 0.875)]],
+    ),
+]
+
+
+PART2_THREE_OR_MORE_STREAM_CASES = [
+    ### Empty or inactive cameras block all common activity ###
+    Case(
+        name='all_cameras_empty',
+        streams=[
+            [],
+            [],
+            [],
+        ],
+        expected=[],
+        reason='Several cameras, all empty.',
+        threshold=0.8,
+        camera_periods=[[], [], []],
+    ),
+    Case(
+        name='empty_camera_among_active',
+        streams=[
+            [(1, 0.9), (5, 0.9)],
+            [],
+            [(2, 0.9), (4, 0.9)],
+        ],
+        expected=[],
+        reason='Every camera is required, including an empty one.',
+        threshold=0.8,
+        camera_periods=[[(1, 5)], [], [(2, 4)]],
+    ),
+    Case(
+        name='inactive_camera_among_active',
+        streams=[
+            [(1, 0.9), (5, 0.9)],
+            [(1, 0.1), (3, 0.2), (5, 0.0)],
+            [(2, 0.9), (4, 0.9)],
+        ],
+        expected=[],
+        reason='A present camera with no active periods blocks all motion.',
+        threshold=0.8,
+        camera_periods=[[(1, 5)], [], [(2, 4)]],
+    ),
+
+    ### All-camera agreement versus pairwise overlap ###
+    Case(
         name='three_cameras_one_overlap',
         streams=[
             [(1, 0.9), (10, 0.9)],
@@ -779,7 +1081,7 @@ PART2_CASES = [
         camera_periods=[[(1, 10)], [(3, 8)], [(5, 12)]],
     ),
     Case(
-        name='three_cameras_only_one_common_tick',
+        name='three_cameras_only_one_common_instant',
         streams=[
             [(1, 0.9), (5, 0.9)],
             [(3, 0.9), (7, 0.9)],
@@ -810,10 +1112,12 @@ PART2_CASES = [
             [(1, 0.9), (2, 0.2), (3, 0.9)],
         ],
         expected=[],
-        reason='Each pair shares a tick, but no tick belongs to all three.',
+        reason='Each pair shares an active instant, but no instant belongs to all three.',
         threshold=0.8,
         camera_periods=[[(1, 2)], [(2, 3)], [(1, 1), (3, 3)]],
     ),
+
+    ### Later cameras remove, trim, or split common periods ###
     Case(
         name='third_camera_removes_one_of_two_periods',
         streams=[
@@ -839,14 +1143,14 @@ PART2_CASES = [
         camera_periods=[[(1, 12)], [(2, 11)], [(3, 5), (8, 10)]],
     ),
     Case(
-        name='third_camera_trims_merged_chain',
+        name='third_camera_trims_fragmented_chain',
         streams=[
             [(1, 0.9), (10, 0.9)],
             [(0, 0.9), (3, 0.9), (3.5, 0.2), (4, 0.9), (7, 0.9), (7.5, 0.2), (8, 0.9), (12, 0.9)],
             [(2, 0.9), (5, 0.9), (6, 0.2), (7, 0.9), (9, 0.9)],
         ],
-        expected=[(2, 5), (7, 9)],
-        reason='A previously adjacent chain has a missing tick in the third camera.',
+        expected=[(2, 3), (4, 5), (7, 7), (8, 9)],
+        reason='The third camera trims existing fragments without filling any camera gaps.',
         threshold=0.8,
         camera_periods=[[(1, 10)], [(0, 3), (4, 7), (8, 12)], [(2, 5), (7, 9)]],
     ),
@@ -857,11 +1161,13 @@ PART2_CASES = [
             [(2, 0.9), (6, 0.9), (6.5, 0.2), (7, 0.9), (10, 0.9)],
             [(3, 0.9), (5, 0.9), (5.5, 0.2), (6, 0.9), (8, 0.9)],
         ],
-        expected=[(3, 8)],
-        reason='All three cameras have adjacent fragments, with staggered boundaries.',
+        expected=[(3, 4), (5, 5), (6, 6), (7, 8)],
+        reason='Staggered positive gaps from all three cameras remain in the output.',
         threshold=0.8,
         camera_periods=[[(1, 4), (5, 9)], [(2, 6), (7, 10)], [(3, 5), (6, 8)]],
     ),
+
+    ### Four or five cameras and duplicate streams ###
     Case(
         name='four_cameras_nested',
         streams=[
@@ -901,17 +1207,8 @@ PART2_CASES = [
         threshold=0.8,
         camera_periods=[[(1, 4), (7, 10)], [(1, 4), (7, 10)], [(2, 8)]],
     ),
-    Case(
-        name='overlap_without_shared_reading_timestamps',
-        streams=[
-            [(1, 0.9), (6, 0.9)],
-            [(4, 0.9), (10, 0.9)],
-        ],
-        expected=[(4, 6)],
-        reason='No raw timestamp is shared; their inferred periods still overlap.',
-        threshold=0.8,
-        camera_periods=[[(1, 6)], [(4, 10)]],
-    ),
+
+    ### Sparse sampling across multiple cameras ###
     Case(
         name='very_sparse_readings',
         streams=[
@@ -924,92 +1221,13 @@ PART2_CASES = [
         threshold=0.8,
         camera_periods=[[(0, 10000)], [(100, 9000)], [(200, 8000)]],
     ),
-    Case(
-        name='timestamp_zero_overlap',
-        streams=[
-            [(0, 0.9), (3, 0.9)],
-            [(0, 0.9)],
-        ],
-        expected=[(0, 0)],
-        reason='Zero is a valid singleton overlap.',
-        threshold=0.8,
-        camera_periods=[[(0, 3)], [(0, 0)]],
-    ),
-    Case(
-        name='large_timestamps_overlap',
-        streams=[
-            [(1000000000000, 0.9), (1000000000010, 0.9)],
-            [(1000000000004, 0.9), (1000000000020, 0.9)],
-        ],
-        expected=[(1000000000004, 1000000000010)],
-        reason='Large timestamp values must be preserved exactly.',
-        threshold=0.8,
-        camera_periods=[[(1000000000000, 1000000000010)], [(1000000000004, 1000000000020)]],
-    ),
-    Case(
-        name='threshold_equality_at_overlap_boundaries',
-        streams=[
-            [(0, 0.2), (1, 0.9), (4, 0.8), (6, 0.2)],
-            [(1, 0.2), (2, 0.8), (5, 0.9), (7, 0.2)],
-        ],
-        expected=[(2, 4)],
-        reason='Both overlap boundaries are exactly threshold in their own camera.',
-        threshold=0.8,
-        camera_periods=[[(1, 4)], [(2, 5)]],
-    ),
-    Case(
-        name='exact_threshold_singletons',
-        streams=[
-            [(1, 0.2), (3, 0.8), (5, 0.2)],
-            [(2, 0.2), (3, 0.8), (4, 0.2)],
-        ],
-        expected=[(3, 3)],
-        reason='Equality alone supplies a shared singleton.',
-        threshold=0.8,
-        camera_periods=[[(3, 3)], [(3, 3)]],
-    ),
-    Case(
-        name='one_camera_just_below_threshold',
-        streams=[
-            [(1, 0.9), (5, 0.9)],
-            [(1, 0.799999), (5, 0.799999)],
-        ],
-        expected=[],
-        reason='A nearly-active camera still blocks the entire result.',
-        threshold=0.8,
-        camera_periods=[[(1, 5)], []],
-    ),
-    Case(
-        name='threshold_zero_different_extents',
-        streams=[
-            [(1, 0.0), (5, 0.2)],
-            [(3, 0.0), (8, 1.0)],
-        ],
-        expected=[(3, 5)],
-        reason='All readings qualify, but camera time extents still constrain overlap.',
-        threshold=0.0,
-        camera_periods=[[(1, 5)], [(3, 8)]],
-    ),
-    Case(
-        name='threshold_one_split_overlap',
-        streams=[
-            [(1, 1.0), (2, 1.0), (3, 0.99), (4, 1.0), (5, 1.0)],
-            [(1, 0.9), (2, 1.0), (4, 1.0), (5, 0.9)],
-        ],
-        expected=[(2, 2), (4, 4)],
-        reason='Only readings equal to one qualify, including isolated boundary overlaps.',
-        threshold=1.0,
-        camera_periods=[[(1, 2), (4, 5)], [(2, 4)]],
-    ),
-    Case(
-        name='custom_threshold_all_cameras',
-        streams=[
-            [(1, 0.49), (2, 0.5), (4, 0.6), (6, 0.49)],
-            [(2, 0.49), (3, 0.5), (5, 0.9), (7, 0.49)],
-        ],
-        expected=[(3, 4)],
-        reason='A nondefault threshold applies to every stream.',
-        threshold=0.5,
-        camera_periods=[[(2, 4)], [(3, 5)]],
-    ),
 ]
+
+
+# Combined view retained for the test runner and diagram renderer.
+PART2_CASES = (
+    PART2_NO_STREAM_CASES
+    + PART2_ONE_STREAM_CASES
+    + PART2_TWO_STREAM_CASES
+    + PART2_THREE_OR_MORE_STREAM_CASES
+)

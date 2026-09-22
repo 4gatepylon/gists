@@ -1,46 +1,47 @@
 #!/usr/bin/env python3
-"""Draw small, inclusive integer timelines from the declared test fixtures.
+"""Render literal fixtures as continuous-time coverage diagrams.
 
-This only displays supplied readings and interval literals. It neither discovers
-active runs nor calculates intersections or expected answers. x means active,
-a dash is absent; a dot is an explicitly inactive sample. Raw sample rows distinguish
-missing observations from inactivity. Fractional inactive samples are listed
-separately, since the coverage rows describe integer ticks.
-
-Long axes print SKIPPED: default limits are 40 ticks and 120 output columns.
-Use --write to regenerate CASES.md, or filter with --part and --match.
+Each ':' column represents the open span between neighboring timestamps.
+Use --write to generate CASES.md, or filter with --part and --match.
 """
 
 import argparse
 from pathlib import Path
 
-from cases import PART1_CASES, PART2_CASES
+from cases import PART1_CASES, PART2_CASES, __doc__ as CASE_PARTITIONS
 
 
-def draw_case(case, max_ticks=40, max_width=120):
+def draw_case(case, max_ticks=40, max_width=120, include_legend=True):
     streams = case.streams
-    timestamps = [time for stream in streams for time, _ in stream]
+    timestamps = {time for stream in streams for time, _ in stream}
+    declared_periods = list(case.expected)
+    if case.camera_periods is not None:
+        for periods in case.camera_periods:
+            declared_periods.extend(periods)
+    timestamps.update(time for period in declared_periods for time in period)
+    timestamps = sorted(timestamps)
     if not timestamps:
         return "(empty timeline: no readings; expected [])"
 
-    first = int(min(timestamps))
-    last = int(max(timestamps))
-    if max(timestamps) != last:
-        last += 1
-    tick_count = last - first + 1
-    cell_width = max(len(str(first)), len(str(last))) + 1
+    # The axis includes every declared endpoint, so coverage cannot change
+    # inside a span column. No numerical time grid or midpoint is needed.
+    columns = []
+    for index, timestamp in enumerate(timestamps):
+        if index:
+            columns.append((timestamps[index - 1], timestamp))
+        columns.append((timestamp, timestamp))
+    labels = [str(left) if left == right else ":" for left, right in columns]
+    widths = [max(2, len(label) + 1) for label in labels]
     label_width = 12
-    total_width = label_width + tick_count * cell_width
-    if tick_count > max_ticks or total_width > max_width:
-        return "SKIPPED: {} integer ticks / {} columns; limits {} ticks / {} columns.".format(
-            tick_count, total_width, max_ticks, max_width
+    total_width = label_width + sum(widths)
+    if len(timestamps) > max_ticks or total_width > max_width:
+        return "SKIPPED: {} timestamps / {} columns; limits {} timestamps / {} columns.".format(
+            len(timestamps), total_width, max_ticks, max_width
         )
-
-    ticks = range(first, last + 1)
 
     def row(label, symbols):
         return label.ljust(label_width) + "".join(
-            str(symbol).rjust(cell_width) for symbol in symbols
+            str(symbol).rjust(width) for symbol, width in zip(symbols, widths)
         )
 
     def interval_row(label, periods):
@@ -48,13 +49,12 @@ def draw_case(case, max_ticks=40, max_width=120):
         return row(
             label,
             [
-                "x" if any(start <= tick <= end for start, end in periods) else "-"
-                for tick in ticks
+                "x" if any(start <= left and right <= end for start, end in periods) else "-"
+                for left, right in columns
             ],
         )
 
-    lines = [row("tick", ticks)]
-    fractional = []
+    lines = [row("time", labels)]
     for number, stream in enumerate(streams, start=1):
         samples = dict(stream)
         lines.append(
@@ -63,10 +63,10 @@ def draw_case(case, max_ticks=40, max_width=120):
                 [
                     (
                         "-"
-                        if tick not in samples
-                        else "x" if samples[tick] >= case.threshold else "."
+                        if left != right or left not in samples
+                        else "x" if samples[left] >= case.threshold else "."
                     )
-                    for tick in ticks
+                    for left, right in columns
                 ],
             )
         )
@@ -76,16 +76,13 @@ def draw_case(case, max_ticks=40, max_width=120):
                     "c{} periods".format(number), case.camera_periods[number - 1]
                 )
             )
-        for timestamp, intensity in stream:
-            if timestamp != int(timestamp):
-                fractional.append("c{}: ({}, {})".format(number, timestamp, intensity))
     lines.append(interval_row("expected", case.expected))
-    if fractional:
-        lines.append("Off-grid inactive samples: " + "; ".join(fractional))
+    if include_legend:
+        lines.append("Each ':' column represents the open span between its neighboring timestamps.")
     return "\n".join(lines)
 
 
-def describe_case(case, max_ticks=40, max_width=120):
+def describe_case(case, max_ticks=40, max_width=120, include_legend=True):
     lines = [case.reason, "threshold = {}".format(case.threshold)]
     for number, stream in enumerate(case.streams, start=1):
         lines.append("camera{} readings = {}".format(number, stream))
@@ -98,7 +95,7 @@ def describe_case(case, max_ticks=40, max_width=120):
     if not case.streams:
         lines.append("camera_streams = []")
     lines.append("expected = {}".format(case.expected))
-    lines.extend(["", draw_case(case, max_ticks, max_width)])
+    lines.extend(["", draw_case(case, max_ticks, max_width, include_legend)])
     return "\n".join(lines)
 
 
@@ -106,16 +103,20 @@ def render_catalog(selected, max_ticks=40, max_width=120):
     lines = [
         "# Motion test cases",
         "",
-        "Generated by `visualize_cases.py` from the handwritten fixtures in `cases.py`.",
-        "Expected answers are literal fixtures, never computed by the visualizer.",
+        "Fixtures: [cases.py](cases.py). Contract: [README.md](README.md).",
         "",
-        "On the integer grid, `x` means active coverage and `-` means absent coverage.",
-        "In sample rows, `x` means at or above threshold, `.` means below threshold,",
-        "and `-` means no reading.",
-        "Period rows include unsampled integer ticks within the declared interval bounds.",
-        "Fractional inactive readings are listed separately. Part 1 preserves distinct raw runs;",
-        "Part 2 merges adjacent integer output periods. Consult README.md for this chosen contract.",
-        "Long diagrams say `SKIPPED`; their inputs and expected outputs remain listed.",
+        "## Case partitions",
+        "",
+        CASE_PARTITIONS.strip(),
+        "",
+        "## Diagram legend",
+        "",
+        "The axis shows sample timestamps and interval endpoints. Each `:` column is the",
+        "open span between neighboring timestamps; spacing is schematic.",
+        "",
+        "- Period rows: `x` = active at that instant or throughout that span; `-` = inactive.",
+        "- Sample rows: `x` = at or above threshold; `.` = below threshold; `-` = no reading.",
+        "- `SKIPPED` = diagram exceeds the size limits; fixture data remains listed.",
         "",
     ]
     for part, case in selected:
@@ -124,7 +125,7 @@ def render_catalog(selected, max_ticks=40, max_width=120):
                 "## Part {}: {}".format(part, case.name),
                 "",
                 "```text",
-                describe_case(case, max_ticks, max_width),
+                describe_case(case, max_ticks, max_width, include_legend=False),
                 "```",
                 "",
             ]
@@ -136,7 +137,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--part", type=int, choices=(1, 2))
     parser.add_argument("--match", default="", help="substring of case name")
-    parser.add_argument("--max-ticks", type=int, default=40)
+    parser.add_argument("--max-ticks", type=int, default=40, help="maximum distinct displayed timestamps")
     parser.add_argument("--max-width", type=int, default=120)
     parser.add_argument("--write", type=Path, help="write the catalog to this path")
     args = parser.parse_args()
