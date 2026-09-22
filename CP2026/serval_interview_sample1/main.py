@@ -77,7 +77,9 @@ def _union(interval1: Period, interval2: Period) -> Period:
     start1, end1 = interval1
     start2, end2 = interval2
     start, end = min(start1, start2), max(end1, end2)
-    assert start <= end, f"start={start} > end={end}"
+    assert (
+        start <= end
+    ), f"start={start} > end={end} from _union(interval1={interval1}, interval2={interval2})"
     return (start, end)
 
 
@@ -85,29 +87,41 @@ def _intersection(interval1: Period, interval2: Period) -> Period:
     start1, end1 = interval1
     start2, end2 = interval2
     start, end = max(start1, start2), min(end1, end2)
-    assert start <= end, f"start={start} > end={end}"
+    assert (
+        start <= end
+    ), f"start={start} > end={end} from _intersection(interval1={interval1}, interval2={interval2})"
     return (start, end)
 
 
-def _canonicalize_intervals(intervals: List[Period]) -> List[Period]:
-    """Return a list of intervals that are canonicalized, i.e. no two adjacent intervals are overlapping"""
-    post_merged_intervals = []
-    for i, interval in enumerate(intervals):
-        if len(post_merged_intervals) == 0:
-            post_merged_intervals.append(interval)
-        else:
-            if _overlap(post_merged_intervals[-1], interval):
-                post_merged_intervals[-1] = _intersection(
-                    post_merged_intervals[-1], interval
-                )
-            else:
-                post_merged_intervals.append(interval)
-    assert all(0 <= i[0] <= i[1] for i in post_merged_intervals)
-    assert all(
-        i1[1] < i2[0]
-        for i1, i2 in zip(post_merged_intervals, post_merged_intervals[1:])
-    )
-    return post_merged_intervals
+# NOTE: if you ended up with [a, b] and [b+1, c] it appened either BECAUSE exactly:
+#   You had [x, b] and [b+1, y] for x <= a, y <= c in ONE stream (with the a from the other).
+#   This MUST have happened beause of an INTERSECTION operation being used here (those entries need to have been previously in BOTH).
+#   It's possible at least ONE stream had b in a larger interval, but they cannot BOTH have had that.
+#   This means that these cases should NOT be merged into longer intgervals since if this split existed, then
+#   the previous camera stream active periods would have already been merged. More broadly, you should never merge after the fact (ANY
+#   seperation IS MEANINGFUL and should be KEPT).
+#
+# In the first case the two entries should NOT be merged since otherwise they would have been merged in the stream itself.
+# In the second case you
+#
+# def _canonicalize_intervals(intervals: List[Period]) -> List[Period]:
+#     """Return a list of intervals that are canonicalized, i.e. no two adjacent intervals are overlapping"""
+#     post_merged_intervals = []
+#     for interval in intervals:
+#         if len(post_merged_intervals) == 0:
+#             post_merged_intervals.append(interval)
+#         else:
+#             assert not _overlap(post_merged_intervals[-1], interval)
+#             if post_merged_intervals[-1][1] + 1 == interval[0]:
+#                 post_merged_intervals[-1] = _union(post_merged_intervals[-1], interval)
+#             else:
+#                 post_merged_intervals.append(interval)
+#     assert all(0 <= i[0] <= i[1] for i in post_merged_intervals)
+#     assert all(
+#         i1[1] < i2[0]
+#         for i1, i2 in zip(post_merged_intervals, post_merged_intervals[1:])
+#     )
+#     return post_merged_intervals
 
 
 def _intersection_merge_intervals(
@@ -144,7 +158,7 @@ def _intersection_merge_intervals(
         # print("> next i,j:", i, ",", j, "; len(intervals1): ", len(intervals1), "; len(intervals2): ", len(intervals2)) # DEBUG
 
     # Make sure the format is right and return (assertions)
-    post_merged_intervals = _canonicalize_intervals(pre_merged_intervals)
+    post_merged_intervals = pre_merged_intervals
     return post_merged_intervals
 
 
