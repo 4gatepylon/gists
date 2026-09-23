@@ -100,6 +100,19 @@ def _next_state(
     return next_state
 
 
+def _will_reach_ceiling(
+    current_state: State,
+    gravity: float,
+    jump_speed: float,
+    min_allowable_y: float,
+    dt: float,
+) -> bool:
+    minimal_y = current_state.y + jump_speed * dt + 0.5 * gravity * dt**2
+    return (
+        minimal_y > min_allowable_y
+    )
+
+
 def Q(
     map: Map,
     lookahead_T: int,
@@ -122,6 +135,12 @@ def Q(
         return Q_at_lose
     elif current_state.y < min_allowable_y:
         return Q_at_lose
+    # > 1.15 when you will die no matter what you do based on this action
+    dt = 1.0 / map.fps
+    if action == True and _will_reach_ceiling(
+        current_state, map.gravity, map.jump_speed, min_allowable_y, dt
+    ):
+        return Q_at_lose
     # > 1.2: When you win
     max_non_winning_x = map.canvas_x - map.sprite_radius - x_offset_left
     if current_state.x > max_non_winning_x:
@@ -136,7 +155,6 @@ def Q(
     ):
         return Q_at_intersect_ball
     # 2. Calculate Q-values using DP
-    dt = 1.0 / map.fps
     next_state = _next_state(current_state, action, dt, map.gravity, map.jump_speed)
     if next_state in Q_cache:
         return Q_cache[next_state]
